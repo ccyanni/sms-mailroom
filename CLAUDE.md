@@ -11,3 +11,8 @@ The five default triage roles (`needs-triage`, `needs-info`, `ready-for-agent`, 
 ### Domain docs
 
 Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Development
+
+- Run the tests: `uv run pytest`
+- Tests drive Mailroom through the web page with a scripted fake Modem (`tests/support.py`); no hardware is needed.

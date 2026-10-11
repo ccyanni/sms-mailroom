@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mailroom</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0 auto; max-width: 44rem; padding: 1rem; }
+    h1 { font-size: 1.25rem; }
+    ul { list-style: none; padding: 0; }
+    li { border-bottom: 1px solid #ddd; padding: 0.75rem 0; }
+    .meta { color: #666; font-size: 0.85rem; }
+    .text { margin: 0.25rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <h1>Mailroom</h1>
+  {% if messages %}
+  <ul>
+    {% for m in messages %}
+    <li class="message">
+      <div class="meta"><span class="sim">{{ m.sim }}</span> · <span class="sender">{{ m.sender }}</span> · <time>{{ m.time }}</time></div>
+      <p class="text">{{ m.text }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="meta">No Messages yet.</p>
+  {% endif %}
+</body>
+</html>

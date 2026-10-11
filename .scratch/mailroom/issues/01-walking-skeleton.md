@@ -4,12 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The project installs and its test suite runs with a single `uv` command
-- [ ] A fake Modem can be scripted in tests to answer AT commands and emit new-message indications, and nothing above the transport seam knows it is fake
-- [ ] The PDU codec decodes SMS-DELIVER PDUs in UCS2 and GSM 7-bit, including numeric and alphanumeric senders and the network timestamp with its timezone
-- [ ] A single-Part Message delivered by the fake Modem is stored once against a SIM identified by ICCID
-- [ ] The web page lists stored Messages newest first, showing SIM, sender, text and time in Taipei time
-- [ ] Traditional Chinese, Simplified Chinese and mixed Chinese/English text display correctly
-- [ ] Tests assert on observable outcomes (stored Message, rendered page), not internal calls
+- [x] The project installs and its test suite runs with a single `uv` command
+- [x] A fake Modem can be scripted in tests to answer AT commands and emit new-message indications, and nothing above the transport seam knows it is fake
+- [x] The PDU codec decodes SMS-DELIVER PDUs in UCS2 and GSM 7-bit, including numeric and alphanumeric senders and the network timestamp with its timezone
+- [x] A single-Part Message delivered by the fake Modem is stored once against a SIM identified by ICCID
+- [x] The web page lists stored Messages newest first, showing SIM, sender, text and time in Taipei time
+- [x] Traditional Chinese, Simplified Chinese and mixed Chinese/English text display correctly
+- [x] Tests assert on observable outcomes (stored Message, rendered page), not internal calls

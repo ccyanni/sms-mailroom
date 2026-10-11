@@ -1,0 +1,126 @@
+"""Messages delivered by a Modem are stored and shown on the web page."""
+
+import re
+from datetime import datetime, timedelta, timezone
+
+import pytest
+from fastapi.testclient import TestClient
+
+from mailroom.web import create_app
+from support import FakeModem, FakeTransport, build_pdu, wait_for
+
+
+@pytest.fixture
+def modem():
+    return FakeModem(iccid="89886000000000000001", number="+886900000001")
+
+
+@pytest.fixture
+def mailroom(modem, tmp_path):
+    return lambda *modems: TestClient(
+        create_app(FakeTransport(*(modems or (modem,))), tmp_path / "mailroom.db", poll_interval=0.3)
+    )
+
+
+def shown_messages(page) -> list[str]:
+    return re.findall(r'<p class="text">(.*?)</p>', page.get("/").text, flags=re.S)
+
+
+def test_message_delivered_to_a_modem_appears_on_the_page(modem, mailroom):
+    with mailroom() as page:
+        modem.deliver(build_pdu("0912345678", "Your code is 123456", encoding="gsm7"))
+
+        wait_for(lambda: shown_messages(page))
+        html = page.get("/").text
+
+    assert "Your code is 123456" in html
+    assert "0912345678" in html
+    assert "+886900000001" in html  # the SIM that received it
+    assert "2026-10-11 23:34:07" in html
+
+
+def test_page_says_so_when_there_are_no_messages(mailroom):
+    with mailroom() as page:
+        assert "No Messages yet." in page.get("/").text
+
+
+@pytest.mark.parametrize("text", ["測試 test 123", "验证码 504126，请勿泄露", "繁體與简体 mixed 內容"])
+def test_chinese_text_is_displayed_correctly(modem, mailroom, text):
+    with mailroom() as page:
+        modem.deliver(build_pdu("10086", text))
+
+        assert wait_for(lambda: shown_messages(page)) == [text]
+
+
+def test_times_are_shown_in_taipei_time(modem, mailroom):
+    tokyo = timezone(timedelta(hours=9))
+    with mailroom() as page:
+        modem.deliver(build_pdu("12345", "hi", sent_at=datetime(2026, 3, 1, 0, 30, 0, tzinfo=tokyo)))
+
+        wait_for(lambda: shown_messages(page))
+        assert "2026-02-28 23:30:00" in page.get("/").text
+
+
+def test_messages_are_listed_newest_first(modem, mailroom):
+    taipei = timezone(timedelta(hours=8))
+    with mailroom() as page:
+        for hour, text in [(10, "middle"), (9, "oldest"), (11, "newest")]:
+            modem.deliver(build_pdu("12345", text, sent_at=datetime(2026, 5, 1, hour, tzinfo=taipei)))
+
+        wait_for(lambda: len(shown_messages(page)) == 3)
+        assert shown_messages(page) == ["newest", "middle", "oldest"]
+
+
+def test_message_is_stored_once_and_removed_from_the_sim(modem, mailroom):
+    with mailroom() as page:
+        modem.deliver(build_pdu("12345", "only once"))
+        wait_for(lambda: not modem.stored)
+        modem.deliver(build_pdu("12345", "only once"))  # the same PDU turns up again
+        wait_for(lambda: not modem.stored)
+
+        assert shown_messages(page) == ["only once"]
+
+
+def test_messages_already_on_the_sim_at_startup_are_collected(modem, mailroom):
+    modem.deliver(build_pdu("12345", "arrived while down"), announce=False)
+
+    with mailroom() as page:
+        assert wait_for(lambda: shown_messages(page)) == ["arrived while down"]
+
+
+def test_missed_indication_only_delays_a_message(modem, mailroom):
+    with mailroom() as page:
+        wait_for(lambda: page.get("/").status_code == 200)
+        modem.deliver(build_pdu("12345", "no indication"), announce=False)
+
+        assert wait_for(lambda: shown_messages(page)) == ["no indication"]
+
+
+def test_messages_survive_a_restart(modem, mailroom):
+    with mailroom() as page:
+        modem.deliver(build_pdu("12345", "kept"))
+        wait_for(lambda: shown_messages(page))
+
+    with mailroom() as page:
+        assert shown_messages(page) == ["kept"]
+
+
+def test_each_message_is_shown_with_the_sim_that_received_it(mailroom):
+    taiwan = FakeModem(iccid="89886000000000000001", number="+886900000001")
+    unnamed = FakeModem(iccid="89860000000000004832", number=None)
+    with mailroom(taiwan, unnamed) as page:
+        taiwan.deliver(build_pdu("111", "to taiwan"))
+        unnamed.deliver(build_pdu("222", "to unnamed"))
+        wait_for(lambda: len(shown_messages(page)) == 2)
+        html = page.get("/").text
+
+    by_text = {text: sim for sim, text in re.findall(r'class="sim">(.*?)</span>.*?class="text">(.*?)</p>', html, flags=re.S)}
+    assert by_text == {"to taiwan": "+886900000001", "to unnamed": "SIM …4832"}
+
+
+def test_message_text_cannot_inject_markup(modem, mailroom):
+    with mailroom() as page:
+        modem.deliver(build_pdu("12345", "<script>alert(1)</script>"))
+        wait_for(lambda: shown_messages(page))
+
+        assert "<script>alert(1)</script>" not in page.get("/").text

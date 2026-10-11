@@ -1,0 +1,14 @@
+# 09: Only the owner can reach the web page
+
+**What to build:** The web page is reachable only through Cloudflare Access. Mailroom listens on the loopback address only and validates the Cloudflare Access JWT on every request against the configured team domain and audience tag, so a tunnel misconfiguration cannot expose Messages. Mailroom has no accounts or passwords of its own.
+
+**Blocked by:** 01
+
+**Status:** ready-for-agent
+
+- [ ] The web server binds to `127.0.0.1` only
+- [ ] A request without a valid Cloudflare Access JWT is rejected and reveals no Message content
+- [ ] A JWT with the wrong audience, an expired JWT and a JWT with a bad signature are each rejected
+- [ ] A request with a valid JWT is served
+- [ ] The team domain and audience tag come from configuration outside the repository
+- [ ] Validation can be switched off only by an explicit local-development setting, which is off by default

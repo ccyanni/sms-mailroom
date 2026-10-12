@@ -4,11 +4,11 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The web server binds to `127.0.0.1` only
-- [ ] A request without a valid Cloudflare Access JWT is rejected and reveals no Message content
-- [ ] A JWT with the wrong audience, an expired JWT and a JWT with a bad signature are each rejected
-- [ ] A request with a valid JWT is served
-- [ ] The team domain and audience tag come from configuration outside the repository
-- [ ] Validation can be switched off only by an explicit local-development setting, which is off by default
+- [x] The web server binds to `127.0.0.1` only
+- [x] A request without a valid Cloudflare Access JWT is rejected and reveals no Message content
+- [x] A JWT with the wrong audience, an expired JWT and a JWT with a bad signature are each rejected
+- [x] A request with a valid JWT is served
+- [x] The team domain and audience tag come from configuration outside the repository
+- [x] Validation can be switched off only by an explicit local-development setting, which is off by default

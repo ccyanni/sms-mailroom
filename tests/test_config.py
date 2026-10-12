@@ -37,3 +37,32 @@ def test_mobile_data_cannot_be_switched_on(tmp_path):
 
     with pytest.raises(ValueError, match="keeps mobile data off"):
         config.load(path)
+
+
+@pytest.mark.parametrize(
+    "written", ["myteam", "myteam.cloudflareaccess.com", "https://myteam.cloudflareaccess.com/"]
+)
+def test_reads_cloudflare_access_settings(tmp_path, written):
+    path = tmp_path / "config.toml"
+    path.write_text(f'[access]\nteam_domain = "{written}"\naudience = "abc123"\n')
+
+    settings = config.load(path)
+
+    assert settings.access.issuer == "https://myteam.cloudflareaccess.com"
+    assert settings.access.audience == "abc123"
+    assert settings.allow_unauthenticated is False
+
+
+def test_access_is_not_configured_and_not_waived_by_default(tmp_path):
+    settings = config.load(tmp_path / "absent.toml")
+
+    assert settings.access is None
+    assert settings.allow_unauthenticated is False
+
+
+def test_half_configured_access_is_an_error(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[access]\nteam_domain = "myteam"\n')
+
+    with pytest.raises(ValueError, match="both team_domain and audience"):
+        config.load(path)

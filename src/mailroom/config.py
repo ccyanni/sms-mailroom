@@ -7,6 +7,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from mailroom.access import AccessSettings
 from mailroom.telegram import TelegramSettings
 
 DATA_DIR = Path.home() / "Library" / "Application Support" / "Mailroom"
@@ -17,6 +18,8 @@ DEFAULT_PATH = DATA_DIR / "config.toml"
 class Config:
     telegram: TelegramSettings | None = None
     alert_after_minutes: float = 3.0
+    access: AccessSettings | None = None
+    allow_unauthenticated: bool = False  # local development only
 
 
 def load(path: Path | None = None) -> Config:
@@ -32,7 +35,19 @@ def load(path: Path | None = None) -> Config:
         raise ValueError(f"{path}: [telegram] needs both token and chat_id")
     if data.get("mobile_data", {}).get("enabled", False):
         raise ValueError(f"{path}: [mobile_data] enabled = true is not supported; Mailroom keeps mobile data off")
+    access = data.get("access", {})
+    team_domain, audience = access.get("team_domain"), access.get("audience")
+    if bool(team_domain) != bool(audience):
+        raise ValueError(f"{path}: [access] needs both team_domain and audience")
     return Config(
         telegram=TelegramSettings(str(token), str(chat_id)) if token else None,
         alert_after_minutes=float(data.get("alerts", {}).get("after_minutes", 3.0)),
+        access=AccessSettings(_team_domain(str(team_domain)), str(audience)) if team_domain else None,
+        allow_unauthenticated=bool(access.get("allow_unauthenticated", False)),
     )
+
+
+def _team_domain(value: str) -> str:
+    """Accept "team", "team.cloudflareaccess.com" or a full URL."""
+    host = value.removeprefix("https://").removeprefix("http://").strip("/")
+    return host if "." in host else f"{host}.cloudflareaccess.com"

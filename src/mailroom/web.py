@@ -10,9 +10,10 @@ from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from mailroom.access import COOKIE, HEADER, AccessPolicy, OpenAccess
 from mailroom.forwarder import Forwarder
 from mailroom.health import HealthMonitor
 from mailroom.service import Service
@@ -42,7 +43,9 @@ def create_app(
     alert_after: float = 180.0,
     health_interval: float = 5.0,
     network_service_enabled: Callable[[], bool | None] | None = None,
+    access: AccessPolicy | None = None,
 ) -> FastAPI:
+    access = access or OpenAccess()
     store = Store(db_path)
     send = telegram_sender(telegram, http_post) if telegram else None
     forwarder = Forwarder(store, send, part_timeout, forward_interval)
@@ -62,6 +65,13 @@ def create_app(
             store.close()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.middleware("http")
+    async def owner_only(request: Request, call_next):
+        token = request.headers.get(HEADER) or request.cookies.get(COOKIE)
+        if not access.allows(token) or _from_another_site(request):
+            return PlainTextResponse("Forbidden", status_code=403)
+        return await call_next(request)
 
     @app.get("/", response_class=HTMLResponse)
     def messages(request: Request, sim: str = "", q: str = ""):
@@ -148,3 +158,11 @@ def _back(request: Request) -> RedirectResponse:
     referer = urlsplit(request.headers.get("referer", ""))
     target = "/" + (f"?{referer.query}" if referer.path == "/" and referer.query else "")
     return RedirectResponse(target, status_code=303)
+
+
+def _from_another_site(request: Request) -> bool:
+    """A form posted by some other website, riding on the owner's signed-in browser."""
+    origin = request.headers.get("origin")
+    if request.method in ("GET", "HEAD") or not origin:
+        return False
+    return urlsplit(origin).netloc != request.headers.get("host")

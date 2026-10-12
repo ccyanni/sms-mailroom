@@ -9,6 +9,7 @@ from pathlib import Path
 import uvicorn
 
 from mailroom import config
+from mailroom.access import CloudflareAccess, LockedAccess, OpenAccess
 from mailroom.health import network_service_enabled
 from mailroom.usb import UsbTransport
 from mailroom.web import create_app
@@ -23,12 +24,22 @@ def main() -> None:
     settings = config.load()
     if settings.telegram is None:
         logging.getLogger(__name__).warning("Telegram is not set up; Messages will not be forwarded")
+    log = logging.getLogger(__name__)
+    if settings.access is not None:
+        access = CloudflareAccess(settings.access)
+    elif settings.allow_unauthenticated:
+        log.warning("the web page is open to anyone on this computer: [access] allow_unauthenticated is set")
+        access = OpenAccess()
+    else:
+        log.warning("the web page is locked until [access] team_domain and audience are set in the config")
+        access = LockedAccess()
     app = create_app(
         UsbTransport(),
         db_path,
         telegram=settings.telegram,
         alert_after=settings.alert_after_minutes * 60,
         network_service_enabled=network_service_enabled,
+        access=access,
     )
     uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("MAILROOM_PORT", "8000")), log_level="warning")
 

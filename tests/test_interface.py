@@ -81,6 +81,9 @@ def note(page, name: str) -> str:
         ("(验证密码)662022，尊敬的用户，您正在登录中国移动 APP，该验证码5分钟内有效。", "662022"),
         ("您于2026年10月12日申请的动态密码为 905512", "905512"),
         ("Use OTP 55021 before 12:30 on 2026-10-12", "55021"),
+        ("Your Example Bank sign-in code is 482913. It expires in 5 minutes.", "482913"),
+        ("Your verification code: 7741", "7741"),
+        ("驗證碼：905512。", "905512"),
     ],
 )
 def test_a_code_in_a_message_is_shown_on_its_own_with_a_copy_button(modem, mailroom, text, code):

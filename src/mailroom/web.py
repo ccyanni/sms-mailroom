@@ -35,7 +35,10 @@ _FORWARD_LABELS = {
 }
 # A Message that talks about a code, and the first run of 4 to 8 digits in it that is not a date, a time or an amount.
 _MENTIONS_CODE = re.compile(r"驗證|验证|校驗|校验|動態密碼|动态密码|密碼|密码|code|otp|passcode|\bpin\b", re.IGNORECASE)
-_CODE = re.compile(r"(?<![\d.:/$¥-])(?<![A-Za-z])\d{4,8}(?![\d.:/年月日元])|(?<=[A-Za-z]-)\d{4,8}(?![\d.:/])")
+_CODE = re.compile(
+    r"(?<![\d:/$¥-])(?<!\d\.)(?<![A-Za-z])\d{4,8}(?!\d)(?![.:/]\d)(?![年月日元])"
+    r"|(?<=[A-Za-z]-)\d{4,8}(?!\d)(?![.:/]\d)"
+)
 _UNSTABLE_WINDOW = timedelta(minutes=30)
 _UNSTABLE_DROPS = 3
 _templates = Jinja2Templates(directory=Path(__file__).parent / "templates")

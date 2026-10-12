@@ -106,7 +106,11 @@ def _alphabet(dcs: int) -> str:
 
 def _decode_address(octets: bytes, digits: int, type_of_address: int) -> str:
     if type_of_address & 0x70 == 0x50:  # alphanumeric
-        return _gsm_to_text(_unpack_septets(octets, digits * 4 // 7))
+        septets = _unpack_septets(octets, digits * 4 // 7)
+        # Seven characters fill seven octets with seven bits to spare, which read as an eighth, empty septet.
+        if digits * 4 % 7 == 0 and septets and septets[-1] == 0:
+            septets.pop()
+        return _gsm_to_text(septets)
     number = "".join(f"{o & 0x0F:x}{o >> 4:x}" for o in octets)[:digits]
     number = number.replace("a", "*").replace("b", "#")
     return ("+" if type_of_address & 0x70 == 0x10 else "") + number

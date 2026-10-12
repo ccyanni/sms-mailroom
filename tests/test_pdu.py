@@ -32,8 +32,9 @@ def test_decodes_ucs2_message_with_mixed_chinese_and_english():
     assert delivery.sent_at == datetime(2026, 10, 11, 23, 34, 7, tzinfo=timezone(timedelta(hours=8)))
 
 
-def test_decodes_alphanumeric_sender():
-    assert decode_deliver(build_pdu("Google", "G-123456", encoding="gsm7")).sender == "Google"
+@pytest.mark.parametrize("sender", ["Google", "Courier", "ExampleBank", "TWM", "Bank", "FourteenLetter"])
+def test_decodes_alphanumeric_sender(sender):
+    assert decode_deliver(build_pdu(sender, "G-123456", encoding="gsm7")).sender == sender
 
 
 def test_decodes_gsm_7bit_text_whose_length_is_a_multiple_of_eight():

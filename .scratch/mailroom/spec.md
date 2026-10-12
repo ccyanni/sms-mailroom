@@ -150,4 +150,4 @@ Expected text: `(验证密码)504126，尊敬的用户，您的号码正在一�
 
 - The China Unicom SIM could not be read by a Modem or a phone; cause unknown (damaged card or suspended number). Not a blocker.
 - The USB hub is currently bus-powered. Connect its external power supply before relying on three Modems; under-powered Modems reset at random and the fault is hard to see from software.
-- Vendor manuals are in `docs/reference/` (git-ignored). Only the *A76XX Series AT Command Manual* V1.09 matches this Modem; SIM76XX and SIM767XX manuals describe a different chipset and were removed. Treat every manual as a lead and confirm on the hardware.
+- Vendor manuals are in `docs/reference/` (git-ignored). The *A76XX Series AT Command Manual* (V1.09 and the newer V1.12) and the A76XX Sleep Mode and Linux USB application notes match this Modem; SIM76XX and SIM767XX manuals describe a different chipset and were removed. Treat every manual as a lead and confirm on the hardware.

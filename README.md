@@ -39,8 +39,8 @@ Mailroom 只收簡訊。它不發簡訊、不接電話，也不會使用 SIM 卡
 ## 快速開始
 
 ```bash
-git clone <這個 repo 的網址>
-cd <資料夾>
+git clone https://github.com/ccyanni/sms-mailroom.git
+cd sms-mailroom
 uv sync
 uv run pytest        # 測試不需要任何硬體
 ```

@@ -39,8 +39,8 @@ Mailroom only receives SMS. It does not send messages, take calls, or use a SIM'
 ## Quick start
 
 ```bash
-git clone <this repository's URL>
-cd <directory>
+git clone https://github.com/ccyanni/sms-mailroom.git
+cd sms-mailroom
 uv sync
 uv run pytest        # the tests need no hardware
 ```

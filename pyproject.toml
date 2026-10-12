@@ -2,6 +2,10 @@
 name = "mailroom"
 version = "0.1.0"
 description = "Receive SMS on several SIMs through USB modems; read and forward them remotely."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Yanni Chang" }]
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

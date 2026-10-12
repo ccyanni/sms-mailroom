@@ -11,7 +11,7 @@
 | 項目 | 位置 |
 |---|---|
 | Mailroom 服務 | launchd 系統服務 `us.b612.mailroom`（`/Library/LaunchDaemons/us.b612.mailroom.plist`），以擁有者的帳號執行，使用這個專案的 `.venv` |
-| 網頁 | `https://mailroom.b612.us`，經由 Cloudflare Tunnel 連到 `127.0.0.1:8000`，由 Cloudflare Access 保護 |
+| 網頁 | `https://mailroom.example.com`，經由 Cloudflare Tunnel 連到 `127.0.0.1:8000`，由 Cloudflare Access 保護 |
 | Tunnel | `cloudflared`，另一個 launchd 系統服務（`com.cloudflare.cloudflared`） |
 | 設定檔 | `~/Library/Application Support/Mailroom/config.toml`（僅限本人讀取，內含 Telegram 機器人的 token） |
 | 資料庫 | `~/Library/Application Support/Mailroom/mailroom.db` |

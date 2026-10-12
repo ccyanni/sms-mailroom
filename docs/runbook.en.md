@@ -9,7 +9,7 @@ How to run, check and change the Mailroom installation on the Mac mini. Vocabula
 | Piece | Where |
 |---|---|
 | Mailroom service | launchd daemon `us.b612.mailroom` (`/Library/LaunchDaemons/us.b612.mailroom.plist`), running as the owner's account from this repository's `.venv` |
-| Web page | `https://mailroom.b612.us`, served through a Cloudflare Tunnel to `127.0.0.1:8000` and guarded by Cloudflare Access |
+| Web page | `https://mailroom.example.com`, served through a Cloudflare Tunnel to `127.0.0.1:8000` and guarded by Cloudflare Access |
 | Tunnel | `cloudflared`, its own launchd daemon (`com.cloudflare.cloudflared`) |
 | Settings | `~/Library/Application Support/Mailroom/config.toml` (private; holds the Telegram bot token) |
 | Database | `~/Library/Application Support/Mailroom/mailroom.db` |

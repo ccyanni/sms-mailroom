@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="{{ t.html_lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Mailroom</title>
+  <script>
+    // Apply the chosen appearance before the first paint. "system" leaves it to the browser.
+    try {
+      var theme = localStorage.getItem("theme");
+      if (theme === "light" || theme === "dark") document.documentElement.setAttribute("data-theme", theme);
+    } catch (error) {}
+  </script>
+  <style>
+    :root {
+      --bg: #f5f7fa; --surface: #ffffff; --fg: #16202e; --muted: #5b6878; --line: #dfe5ec;
+      --accent: #1f5fd6; --on-accent: #ffffff; --accent-soft: #e8f0fd;
+      --ok: #16794a; --warn: #9a5b00; --warn-soft: #fff4dc; --warn-line: #e9c877;
+      --danger: #c0271f; --danger-soft: #fdecea;
+      --font: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --radius: 10px;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+      --bg: #0f141b; --surface: #19212b; --fg: #e8edf3; --muted: #9aa7b6; --line: #2b3643;
+      --accent: #6ea3ff; --on-accent: #0b1422; --accent-soft: #1c2c47;
+      --ok: #4cc38a; --warn: #f0b849; --warn-soft: #33290f; --warn-line: #6b5520;
+      --danger: #ff7b72; --danger-soft: #3a1a18; color-scheme: dark; } }
+    :root[data-theme="dark"] {
+      --bg: #0f141b; --surface: #19212b; --fg: #e8edf3; --muted: #9aa7b6; --line: #2b3643;
+      --accent: #6ea3ff; --on-accent: #0b1422; --accent-soft: #1c2c47;
+      --ok: #4cc38a; --warn: #f0b849; --warn-soft: #33290f; --warn-line: #6b5520;
+      --danger: #ff7b72; --danger-soft: #3a1a18; color-scheme: dark; }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 var(--font); }
+    button, input { font: inherit; color: inherit; }
+    button, summary, a, label.msg-head { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    summary { list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    h1, h2, p, ul, dl, dd { margin: 0; padding: 0; }
+    ul { list-style: none; }
+
+    .app { max-width: 40rem; margin: 0 auto; padding: 0 16px calc(120px + env(safe-area-inset-bottom, 0px)); }
+    .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); display: flex; align-items: center; padding: calc(12px + env(safe-area-inset-top, 0px)) 0 12px; }
+    .topbar h1 { font-size: 1.15rem; font-weight: 650; letter-spacing: 0.01em; }
+    .gear { margin-left: auto; }
+    .gear > summary { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 50%; color: var(--muted); }
+    .gear[open] > summary { color: var(--accent); border-color: var(--accent); }
+    .settings { position: absolute; left: 0; right: 0; top: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.12); }
+    .field { display: grid; gap: 4px; font-size: 0.82rem; color: var(--muted); }
+
+    .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--line); border-radius: 9px; padding: 3px; }
+    .seg > * { min-height: 38px; display: grid; place-items: center; border: 0; border-radius: 7px; background: none; color: var(--muted); font-size: 0.9rem; }
+    .seg > [aria-current="true"], .seg > [aria-pressed="true"] { background: var(--surface); color: var(--fg); font-weight: 600; }
+    .seg form { display: contents; }
+
+    .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .tabs > div { max-width: 40rem; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; }
+    .tab { position: relative; min-height: 56px; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 0.75rem; }
+    .tab[aria-current="page"] { color: var(--accent); font-weight: 600; }
+    .tab .mark { position: absolute; top: 9px; left: calc(50% + 8px); width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
+
+    .btn { min-height: 44px; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 0.9rem; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .btn.danger { color: var(--danger); }
+    .btn.solid-danger { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .link { min-height: 44px; border: 0; background: none; color: var(--accent); font-size: 0.9rem; padding: 0 4px; display: inline-flex; align-items: center; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+    .muted { color: var(--muted); }
+    .empty { text-align: center; color: var(--muted); padding: 36px 16px; }
+    .tag { border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; }
+    .tag.warn { color: var(--warn); border-color: var(--warn-line); background: var(--warn-soft); }
+    .toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 16px; border-radius: 99px; font-size: 0.88rem; z-index: 9; }
+    [hidden] { display: none !important; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+    {% block style %}{% endblock %}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>Mailroom</h1>
+      <details class="gear" id="gear">
+        <summary aria-label="{{ t.settings }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg></summary>
+        <section class="settings" aria-label="{{ t.settings }}">
+          <div class="field">{{ t.language }}
+            <div class="seg">
+              {% for code, name in languages %}
+              <form method="post" action="/settings/language"><button name="lang" value="{{ code }}" aria-pressed="{{ 'true' if code == lang else 'false' }}">{{ name }}</button></form>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="field">{{ t.appearance }}
+            <div class="seg" id="themes">
+              <button type="button" data-theme-choice="system">{{ t.theme_system }}</button>
+              <button type="button" data-theme-choice="light">{{ t.theme_light }}</button>
+              <button type="button" data-theme-choice="dark">{{ t.theme_dark }}</button>
+            </div>
+          </div>
+        </section>
+      </details>
+    </header>
+    <main id="refresh">{% block content %}{% endblock %}</main>
+  </div>
+
+  <nav class="tabs" aria-label="Mailroom">
+    <div>
+      <a class="tab" href="/"{% if view == "messages" %} aria-current="page"{% endif %}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13l2.5-7h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13h4.5l1 2h5l1-2H20"/></svg>
+        <span>{{ t.tab_messages }}</span>
+      </a>
+      <a class="tab" href="/status"{% if view == "status" %} aria-current="page"{% endif %}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.5-6 4 12 2.5-6h5"/></svg>
+        <span id="status-mark">{% if has_alerts %}<span class="mark"></span>{% endif %}</span>
+        <span>{{ t.tab_status }}</span>
+      </a>
+    </div>
+  </nav>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script>
+    // Appearance: follow the system, or the owner's remembered choice.
+    (function () {
+      var buttons = document.querySelectorAll("[data-theme-choice]");
+      function show() {
+        var chosen = "system";
+        try { chosen = localStorage.getItem("theme") || "system"; } catch (error) {}
+        buttons.forEach(function (button) { button.setAttribute("aria-pressed", String(button.dataset.themeChoice === chosen)); });
+      }
+      buttons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          var choice = button.dataset.themeChoice;
+          try { localStorage.setItem("theme", choice); } catch (error) {}
+          if (choice === "system") document.documentElement.removeAttribute("data-theme");
+          else document.documentElement.setAttribute("data-theme", choice);
+          show();
+        });
+      });
+      show();
+    })();
+
+    function toast(text) {
+      var el = document.getElementById("toast");
+      el.textContent = text; el.hidden = false;
+      clearTimeout(toast.timer); toast.timer = setTimeout(function () { el.hidden = true; }, 1600);
+    }
+
+    // Refresh the live part of the page from its own address, so the filter and search stay as they are.
+    // Skipped while the owner is in the middle of something: an open Message, a selection, a field being typed in.
+    var REFRESH_MS = 5000;
+    async function refresh() {
+      var live = document.getElementById("refresh");
+      var busy = document.hidden || live.querySelector("details[open]") || live.querySelector("[data-selecting]")
+        || (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName))
+        || document.getElementById("gear").open;
+      if (busy) return;
+      try {
+        var response = await fetch(location.href, { headers: { "X-Mailroom-Refresh": "1" } });
+        if (!response.ok) return;
+        var fresh = new DOMParser().parseFromString(await response.text(), "text/html");
+        live.innerHTML = fresh.getElementById("refresh").innerHTML;
+        document.getElementById("status-mark").innerHTML = fresh.getElementById("status-mark").innerHTML;
+      } catch (error) { /* offline: try again next time */ }
+    }
+    setInterval(refresh, REFRESH_MS);
+  </script>
+  {% block script %}{% endblock %}
+</body>
+</html>

@@ -41,7 +41,7 @@ def shown(page) -> list[tuple[str, bool]]:
     """(text, is marked incomplete) for each Message on the page."""
     items = re.findall(r'<li class="message">(.*?)</li>', page.get("/").text, flags=re.S)
     return [
-        (re.search(r'<p class="text">(.*?)</p>', item, flags=re.S).group(1), "incomplete" in item)
+        (re.search(r'<span class="text">(.*?)</span>', item, flags=re.S).group(1), "incomplete" in item)
         for item in items
     ]
 

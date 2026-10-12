@@ -56,7 +56,7 @@ def alerts(telegram) -> list[str]:
 
 
 def receiving(page) -> bool:
-    return "(receiving)" in page.get("/").text and "home" in page.get("/").text
+    return "(receiving)" in page.get("/status").text and "home" in page.get("/status").text
 
 
 def settle(seconds: float = 3 * GRACE) -> None:
@@ -74,12 +74,12 @@ def test_sim_off_the_network_raises_one_alert_and_another_when_it_recovers(modem
         assert alerts(telegram) == [
             "⚠️ Mailroom alert\nSIM +886900000001 is not receiving: it is not registered on a mobile network."
         ]
-        assert "is not receiving" in page.get("/").text
+        assert "is not receiving" in page.get("/status").text
 
         modem.registration = 1
         wait_for(lambda: len(alerts(telegram)) == 2)
         assert alerts(telegram)[1].startswith("✅ Mailroom: resolved\nSIM +886900000001 is not receiving")
-        assert "is not receiving" not in page.get("/").text
+        assert "is not receiving" not in page.get("/status").text
 
 
 def test_brief_loss_of_registration_stays_quiet(modem, telegram, mailroom):
@@ -87,7 +87,7 @@ def test_brief_loss_of_registration_stays_quiet(modem, telegram, mailroom):
         wait_for(lambda: receiving(page))
 
         modem.registration = 0
-        wait_for(lambda: "not registered" in page.get("/").text)
+        wait_for(lambda: "not registered" in page.get("/status").text)
         modem.registration = 1
         wait_for(lambda: receiving(page))
         settle(0.5)
@@ -115,7 +115,7 @@ def test_modem_that_drops_off_for_a_moment_stays_quiet(transport, modem, telegra
         wait_for(lambda: receiving(page))
 
         transport.unplug(modem)
-        wait_for(lambda: "No Modems attached." in page.get("/").text)
+        wait_for(lambda: "No Modems attached." in page.get("/status").text)
         transport.plug(modem)
         wait_for(lambda: receiving(page))
         settle(0.5)
@@ -128,7 +128,7 @@ def test_modem_that_keeps_disconnecting_raises_one_alert(transport, modem, teleg
         for _ in range(3):
             wait_for(lambda: receiving(page))
             transport.unplug(modem)
-            wait_for(lambda: "No Modems attached." in page.get("/").text)
+            wait_for(lambda: "No Modems attached." in page.get("/status").text)
             transport.plug(modem)
         wait_for(lambda: alerts(telegram))
         settle(0.5)
@@ -165,14 +165,14 @@ def test_telegram_outage_is_shown_on_the_page_and_reported_once_it_is_over(modem
         wait_for(lambda: receiving(page))
         telegram.down = True
         modem.deliver(build_pdu("111", "sent during the outage"))
-        wait_for(lambda: "Telegram has not been reachable since" in page.get("/").text)
+        wait_for(lambda: "Telegram has not been reachable since" in page.get("/status").text)
         settle()
 
         telegram.down = False
         wait_for(lambda: alerts(telegram))
         settle(0.5)
 
-        assert "Telegram has not been reachable" not in page.get("/").text
+        assert "Telegram has not been reachable" not in page.get("/status").text
     (alert,) = alerts(telegram)
     assert re.fullmatch(
         r"⚠️ Mailroom alert\nTelegram could not be reached from \d\d:\d\d to \d\d:\d\d\. "
@@ -197,7 +197,7 @@ def test_enabled_network_service_raises_an_alert_at_startup(modem, telegram, mai
         wait_for(lambda: alerts(telegram))
 
         assert "the Mac could send traffic over a SIM" in alerts(telegram)[0]
-        assert "A76XX Series LTE Module" in page.get("/").text
+        assert "A76XX Series LTE Module" in page.get("/status").text
 
 
 @pytest.mark.parametrize("state", [False, None])

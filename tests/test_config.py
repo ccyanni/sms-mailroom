@@ -66,3 +66,19 @@ def test_half_configured_access_is_an_error(tmp_path):
 
     with pytest.raises(ValueError, match="both team_domain and audience"):
         config.load(path)
+
+
+def test_language_defaults_to_chinese_and_can_be_english(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('language = "en"\n')
+
+    assert config.load(tmp_path / "absent.toml").language == "zh"
+    assert config.load(path).language == "en"
+
+
+def test_unsupported_language_is_an_error(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('language = "fr"\n')
+
+    with pytest.raises(ValueError, match='language must be "zh" or "en"'):
+        config.load(path)

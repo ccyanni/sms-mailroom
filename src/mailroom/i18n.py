@@ -1,0 +1,277 @@
+"""Everything Mailroom says to the owner, in Traditional Chinese and English."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+DEFAULT_LANGUAGE = "zh"
+LANGUAGES = ("zh", "en")
+
+_STRINGS: dict[str, dict[str, str]] = {
+    "en": {
+        "html_lang": "en",
+        "tab_messages": "Messages",
+        "tab_status": "Status",
+        "settings": "Display",
+        "language": "Language",
+        "appearance": "Appearance",
+        "theme_system": "System",
+        "theme_light": "Light",
+        "theme_dark": "Dark",
+        "search": "Search text or sender",
+        "search_button": "Search",
+        "all_sims": "All",
+        "inbox": "Inbox",
+        "archive_box": "Archived",
+        "no_messages": "No Messages yet.",
+        "no_matches": "No Messages match.",
+        "message_count": "{count} Messages",
+        "select": "Select",
+        "done": "Done",
+        "selected": "selected",
+        "select_all": "Select all",
+        "incomplete": "Incomplete",
+        "code": "Code",
+        "copy": "Copy",
+        "copied": "Copied",
+        "received": "Received",
+        "archive": "Archive",
+        "unarchive": "Move to inbox",
+        "delete": "Delete",
+        "delete_confirm": "Delete for good",
+        "delete_warning": "This cannot be undone.",
+        "forward_pending": "not forwarded yet",
+        "forward_sent": "forwarded",
+        "forward_skipped": "not forwarded",
+        "sims_summary": "{total} SIMs, {good} receiving",
+        "no_sims": "No SIM has been seen yet.",
+        "receiving": "Receiving",
+        "not_receiving": "Not receiving",
+        "number": "Number",
+        "number_unknown": "number unknown",
+        "network": "Network",
+        "signal": "Signal",
+        "last_message": "Last Message",
+        "modem": "Modem",
+        "never": "never",
+        "home": "home",
+        "roaming": "roaming",
+        "not registered": "not registered",
+        "not_in_modem": "not in a Modem",
+        "forwarding_on": "Forwarding on",
+        "forwarding_off": "Forwarding off",
+        "rename": "Rename",
+        "save": "Save",
+        "sim_label": "SIM label",
+        "since": "Since",
+        "system": "System",
+        "modems": "Modems",
+        "no_modems": "No Modems attached.",
+        "unidentified": "unidentified",
+        "state_receiving": "receiving",
+        "state_starting": "starting",
+        "sys_service": "Mailroom service",
+        "sys_running": "Running",
+        "sys_uptime": "Up for {duration}",
+        "sys_telegram": "Telegram forwarding",
+        "sys_telegram_ok": "Working",
+        "sys_telegram_off": "Not set up",
+        "sys_telegram_off_note": "Messages are stored but not forwarded",
+        "sys_telegram_down": "Unreachable",
+        "sys_telegram_down_note": "Since {time}; Messages are waiting",
+        "sys_telegram_last": "Last forwarded {when}",
+        "sys_telegram_none": "Nothing forwarded since the service started",
+        "sys_data": "macOS network service",
+        "sys_data_off": "Disabled",
+        "sys_data_off_note": "The Mac will not send traffic over a SIM",
+        "sys_data_on": "Enabled",
+        "sys_data_on_note": "The Mac could send traffic over a SIM; disable it in System Settings → Network",
+        "sys_data_unknown": "Unknown",
+        "sys_data_unknown_note": "Could not be determined",
+        "sys_usb": "USB connection",
+        "sys_usb_ok": "Stable",
+        "sys_usb_ok_note": "No Modem dropped off in the last 30 minutes",
+        "sys_usb_some": "Stable",
+        "sys_usb_bad": "Unstable",
+        "sys_usb_drops": "Modem {imei}: dropped off {count} times in the last 30 minutes",
+        "sys_access": "Page protection",
+        "sys_access_on": "On",
+        "sys_access_on_note": "Cloudflare Access",
+        "sys_access_off": "Off",
+        "sys_access_off_note": "Anyone on this computer can open the page",
+        "just_now": "just now",
+        "minutes_ago": "{n} min ago",
+        "hours_ago": "{n} h ago",
+        "yesterday": "yesterday",
+        "duration_minutes": "{m} min",
+        "duration_hours": "{h} h {m} min",
+        "duration_days": "{d} d {h} h",
+        "alert_header": "⚠️ Mailroom alert",
+        "resolved_header": "✅ Mailroom: resolved",
+        "alert_sim_absent": "SIM {label} is not receiving: its Modem is no longer attached.",
+        "alert_sim_unregistered": "SIM {label} is not receiving: it is not registered on a mobile network.",
+        "alert_storage": "SIM {label} has {used} of {total} storage slots in use. When it is full, new Messages are lost.",
+        "alert_modem": "Modem {imei}: {state}.",
+        "alert_unstable": "Modem {imei} keeps disconnecting ({count} times in the last 30 minutes). "
+        "Check the USB hub, its power supply and the cable.",
+        "alert_network_service": 'The macOS network service "A76XX Series LTE Module" is enabled, so the Mac could '
+        "send traffic over a SIM. Disable it in System Settings → Network.",
+        "alert_telegram_outage": "Telegram could not be reached from {start} to {end}. "
+        "Messages received meanwhile were forwarded late.",
+        "alert_telegram_down": "Telegram has not been reachable since {time}; Messages are waiting to be forwarded.",
+        "message_incomplete": "⚠️ Incomplete: some parts have not arrived",
+        "message_completed": "✅ Now complete (sent earlier with parts missing)",
+    },
+    "zh": {
+        "html_lang": "zh-Hant",
+        "tab_messages": "簡訊",
+        "tab_status": "狀態",
+        "settings": "顯示設定",
+        "language": "語言",
+        "appearance": "外觀",
+        "theme_system": "跟隨系統",
+        "theme_light": "淺色",
+        "theme_dark": "深色",
+        "search": "搜尋內容或寄件者",
+        "search_button": "搜尋",
+        "all_sims": "全部",
+        "inbox": "收件匣",
+        "archive_box": "已封存",
+        "no_messages": "還沒有簡訊。",
+        "no_matches": "沒有符合的簡訊。",
+        "message_count": "{count} 則",
+        "select": "選取",
+        "done": "完成",
+        "selected": "則已選取",
+        "select_all": "全選",
+        "incomplete": "不完整",
+        "code": "驗證碼",
+        "copy": "複製",
+        "copied": "已複製",
+        "received": "收到時間",
+        "archive": "封存",
+        "unarchive": "移回收件匣",
+        "delete": "刪除",
+        "delete_confirm": "永久刪除",
+        "delete_warning": "刪除後無法復原。",
+        "forward_pending": "等待轉發",
+        "forward_sent": "已轉發",
+        "forward_skipped": "未轉發",
+        "sims_summary": "{total} 張 SIM，{good} 張正常收訊",
+        "no_sims": "還沒有偵測到任何 SIM。",
+        "receiving": "正常",
+        "not_receiving": "未收訊",
+        "number": "門號",
+        "number_unknown": "門號未知",
+        "network": "網路",
+        "signal": "訊號",
+        "last_message": "最近簡訊",
+        "modem": "模組",
+        "never": "尚未收到",
+        "home": "本地",
+        "roaming": "漫遊",
+        "not registered": "未註冊",
+        "not_in_modem": "未接上模組",
+        "forwarding_on": "轉發已開啟",
+        "forwarding_off": "轉發已關閉",
+        "rename": "改名",
+        "save": "儲存",
+        "sim_label": "SIM 名稱",
+        "since": "開始於",
+        "system": "系統",
+        "modems": "模組",
+        "no_modems": "沒有接上任何模組。",
+        "unidentified": "尚未辨識",
+        "state_receiving": "收訊中",
+        "state_starting": "啟動中",
+        "sys_service": "Mailroom 服務",
+        "sys_running": "執行中",
+        "sys_uptime": "已連續運作 {duration}",
+        "sys_telegram": "Telegram 轉發",
+        "sys_telegram_ok": "正常",
+        "sys_telegram_off": "尚未設定",
+        "sys_telegram_off_note": "簡訊只存檔，不會轉發",
+        "sys_telegram_down": "無法連線",
+        "sys_telegram_down_note": "從 {time} 開始；簡訊等待轉發中",
+        "sys_telegram_last": "最近一次轉發：{when}",
+        "sys_telegram_none": "服務啟動後還沒有轉發過",
+        "sys_data": "macOS 網路服務",
+        "sys_data_off": "已停用",
+        "sys_data_off_note": "Mac 不會透過 SIM 卡上網",
+        "sys_data_on": "已啟用",
+        "sys_data_on_note": "Mac 可能透過 SIM 卡上網，請到「系統設定 → 網路」停用",
+        "sys_data_unknown": "不明",
+        "sys_data_unknown_note": "無法判斷",
+        "sys_usb": "USB 連線",
+        "sys_usb_ok": "穩定",
+        "sys_usb_ok_note": "過去 30 分鐘內沒有模組斷線",
+        "sys_usb_some": "穩定",
+        "sys_usb_bad": "不穩定",
+        "sys_usb_drops": "模組 {imei}：過去 30 分鐘內斷線 {count} 次",
+        "sys_access": "網頁存取保護",
+        "sys_access_on": "已啟用",
+        "sys_access_on_note": "Cloudflare Access",
+        "sys_access_off": "未啟用",
+        "sys_access_off_note": "這台電腦上的任何人都能開啟網頁",
+        "just_now": "剛剛",
+        "minutes_ago": "{n} 分鐘前",
+        "hours_ago": "{n} 小時前",
+        "yesterday": "昨天",
+        "duration_minutes": "{m} 分鐘",
+        "duration_hours": "{h} 小時 {m} 分",
+        "duration_days": "{d} 天 {h} 小時",
+        "alert_header": "⚠️ Mailroom 異常通知",
+        "resolved_header": "✅ Mailroom：已恢復",
+        "alert_sim_absent": "SIM「{label}」未在收訊：它的模組已經不在了。",
+        "alert_sim_unregistered": "SIM「{label}」未在收訊：沒有註冊到電信網路。",
+        "alert_storage": "SIM「{label}」的儲存空間已使用 {used}/{total}。存滿之後，新的簡訊會遺失。",
+        "alert_modem": "模組 {imei}：{state}。",
+        "alert_unstable": "模組 {imei} 一直斷線（過去 30 分鐘內 {count} 次）。請檢查 USB 集線器、它的電源和線材。",
+        "alert_network_service": "macOS 的網路服務「A76XX Series LTE Module」被啟用了，Mac 可能透過 SIM 卡上網。"
+        "請到「系統設定 → 網路」停用。",
+        "alert_telegram_outage": "{start} 到 {end} 之間無法連上 Telegram，這段期間收到的簡訊延後轉發了。",
+        "alert_telegram_down": "從 {time} 起無法連上 Telegram，簡訊正在等待轉發。",
+        "message_incomplete": "⚠️ 不完整：部分段落尚未送達",
+        "message_completed": "✅ 已補齊（先前送出時缺少部分段落）",
+    },
+}
+
+
+def language(value: str | None) -> str:
+    """A supported language, falling back to the default."""
+    return value if value in LANGUAGES else DEFAULT_LANGUAGE
+
+
+def strings(lang: str) -> dict[str, str]:
+    return _STRINGS[language(lang)]
+
+
+def text(lang: str, key: str, **values: object) -> str:
+    return strings(lang)[key].format(**values)
+
+
+def alert_text(lang: str, kind: str, values: dict) -> str:
+    return text(lang, f"alert_{kind}", **values)
+
+
+def relative_time(lang: str, moment: datetime, now: datetime) -> str:
+    """How long ago, the way a person would say it."""
+    minutes = int((now - moment).total_seconds() // 60)
+    if minutes < 1:
+        return text(lang, "just_now")
+    if minutes < 60:
+        return text(lang, "minutes_ago", n=minutes)
+    if minutes < 24 * 60:
+        return text(lang, "hours_ago", n=minutes // 60)
+    if minutes < 48 * 60:
+        return text(lang, "yesterday")
+    return f"{moment.month}/{moment.day}"
+
+
+def duration(lang: str, seconds: float) -> str:
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return text(lang, "duration_minutes", m=minutes)
+    if minutes < 24 * 60:
+        return text(lang, "duration_hours", h=minutes // 60, m=minutes % 60)
+    return text(lang, "duration_days", d=minutes // 1440, h=minutes % 1440 // 60)

@@ -41,7 +41,7 @@ def page(transport, telegram, tmp_path):
 def sims(page) -> list[dict[str, str]]:
     """What the page shows for each SIM."""
     found = []
-    for item in re.findall(r'<li class="sim">(.*?)</li>', page.get("/").text, flags=re.S):
+    for item in re.findall(r'<li class="sim card">(.*?)</li>', page.get("/status").text, flags=re.S):
         details = dict(re.findall(r'class="(number|operator|signal|registration|last)">(.*?)</span>', item))
         details["label"] = re.search(r'name="label" value="(.*?)"', item).group(1)
         details["forwarding"] = re.search(r"Forwarding (on|off)", item).group(1)
@@ -50,7 +50,7 @@ def sims(page) -> list[dict[str, str]]:
 
 
 def message_labels(page) -> list[tuple[str, str]]:
-    return re.findall(r'class="sim-label">(.*?)</span>.*?class="text">(.*?)</p>', page.get("/").text, flags=re.S)
+    return re.findall(r'class="sim-label">(.*?)</span>.*?class="text">(.*?)</span>', page.get("/").text, flags=re.S)
 
 
 def plug(transport, page, **modem_options) -> FakeModem:

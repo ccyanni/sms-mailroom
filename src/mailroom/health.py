@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable
 from zoneinfo import ZoneInfo
 
+from mailroom import i18n
 from mailroom.forwarder import Forwarder
 from mailroom.receiver import NOT_REGISTERED, RECEIVING
 from mailroom.service import Service
@@ -49,6 +50,7 @@ class HealthMonitor:
         alert_after: float = 180.0,
         interval: float = 5.0,
         network_service_enabled: Callable[[], bool | None] | None = None,
+        language: str = i18n.DEFAULT_LANGUAGE,
     ) -> None:
         """A problem is reported once it has lasted `alert_after` seconds, so brief blips stay quiet."""
         self._store = store
@@ -59,8 +61,10 @@ class HealthMonitor:
         self._interval = interval
         self._network_service_enabled = network_service_enabled
         self._network_service_checked: datetime | None = None
+        self._language = language
+        self.network_service_state: bool | None = None  # as last probed; None when unknown
         self._outage_since: datetime | None = None
-        self._outage_notices: list[str] = []
+        self._outage_notices: list[dict] = []
 
     def run(self, stop: threading.Event) -> None:
         while not stop.wait(self._interval):
@@ -69,71 +73,62 @@ class HealthMonitor:
             except Exception:
                 log.exception("health check failed")
 
-    def active_alerts(self) -> list[str]:
-        """What is wrong right now, for the web page."""
-        alerts = [alert.text for alert in self._store.list_alerts() if alert.raised]
+    def active_alerts(self, language: str) -> list[tuple[str, datetime]]:
+        """What is wrong right now and since when, in words, for the web page."""
+        alerts = [
+            (i18n.alert_text(language, alert.kind, alert.values), alert.since)
+            for alert in self._store.list_alerts()
+            if alert.raised
+        ]
         since = self._forwarder.failing_since
         if since is not None:
-            alerts.append(f"Telegram has not been reachable since {_clock(since)}; Messages are waiting to be forwarded.")
+            alerts.append((i18n.alert_text(language, "telegram_down", {"time": _clock(since)}), since))
         return alerts
 
     def check(self) -> None:
         now = datetime.now(timezone.utc)
         known = {alert.key: alert for alert in self._store.list_alerts()}
-        problems: dict[str, tuple[str, timedelta]] = {}
+        problems: dict[str, tuple[str, dict, timedelta]] = {}
 
         attached = self._service.modems()
         by_iccid = {modem.iccid: modem for modem in attached if modem.iccid}
         for sim in self._store.list_sims():
             modem = by_iccid.get(sim.iccid)
             if modem is None:
-                reason = "its Modem is no longer attached"
+                problems[f"sim:{sim.iccid}"] = ("sim_absent", {"label": sim.label}, self._alert_after)
             elif modem.state == RECEIVING and modem.network.registration == NOT_REGISTERED:
-                reason = "it is not registered on a mobile network"
-            else:
-                reason = None
-            if reason:
-                problems[f"sim:{sim.iccid}"] = (f"SIM {sim.label} is not receiving: {reason}.", self._alert_after)
+                problems[f"sim:{sim.iccid}"] = ("sim_unregistered", {"label": sim.label}, self._alert_after)
             network = modem.network if modem else None
             if network and network.storage_total and network.storage_used is not None:
                 if network.storage_used >= _STORAGE_NEARLY_FULL * network.storage_total:
                     problems[f"storage:{sim.iccid}"] = (
-                        f"SIM {sim.label} has {network.storage_used} of {network.storage_total} storage slots "
-                        "in use. When it is full, new Messages are lost.",
+                        "storage",
+                        {"label": sim.label, "used": network.storage_used, "total": network.storage_total},
                         self._alert_after,
                     )
 
         for modem in attached:
             if modem.imei and not modem.iccid and modem.state.startswith("cannot receive"):
-                problems[f"modem:{modem.imei}"] = (f"Modem {modem.imei}: {modem.state}.", self._alert_after)
+                problems[f"modem:{modem.imei}"] = (
+                    "modem", {"imei": modem.imei, "state": modem.state}, self._alert_after
+                )
 
         drops = self._service.disconnects_since(now - _UNSTABLE_WINDOW)
         for imei in set(drops):
             key = f"unstable:{imei}"
             if drops.count(imei) >= _UNSTABLE_DISCONNECTS or key in known:
-                problems[key] = (
-                    f"Modem {imei} keeps disconnecting ({drops.count(imei)} times in the last 30 minutes). "
-                    "Check the USB hub, its power supply and the cable.",
-                    _NOW,
-                )
+                problems[key] = ("unstable", {"imei": imei, "count": drops.count(imei)}, _NOW)
 
         if self._network_service_enabled is not None:
-            key = "data:network-service"
             due = self._network_service_checked is None or now - self._network_service_checked >= _NETWORK_SERVICE_CHECK_EVERY
             if due:
                 self._network_service_checked = now
-                enabled = self._network_service_enabled()
-            else:
-                enabled = key in known
-            if enabled:
-                problems[key] = (
-                    f'The macOS network service "{NETWORK_SERVICE}" is enabled, so the Mac could send traffic '
-                    "over a SIM. Disable it in System Settings → Network.",
-                    _NOW,
-                )
+                self.network_service_state = self._network_service_enabled()
+            if self.network_service_state:
+                problems["data:network-service"] = ("network_service", {}, _NOW)
 
-        for key, (text, grace) in problems.items():
-            self._raise(known.get(key) or StoredAlert(key, text, now, raised=False, delivered=False), now, grace)
+        for key, (kind, values, grace) in problems.items():
+            self._raise(known.get(key) or StoredAlert(key, kind, values, now, raised=False, delivered=False), now, grace)
         for key, alert in known.items():
             if key not in problems:
                 self._resolve(alert)
@@ -142,14 +137,14 @@ class HealthMonitor:
     def _raise(self, alert: StoredAlert, now: datetime, grace: timedelta) -> None:
         raised = alert.raised or now - alert.since >= grace
         if raised and not alert.raised:
-            log.warning("alert: %s", alert.text)
-        delivered = alert.delivered or (raised and self._deliver(f"⚠️ Mailroom alert\n{alert.text}"))
-        self._store.save_alert(StoredAlert(alert.key, alert.text, alert.since, raised, delivered))
+            log.warning("alert: %s", i18n.alert_text("en", alert.kind, alert.values))
+        delivered = alert.delivered or (raised and self._deliver("alert_header", alert.kind, alert.values))
+        self._store.save_alert(StoredAlert(alert.key, alert.kind, alert.values, alert.since, raised, delivered))
 
     def _resolve(self, alert: StoredAlert) -> None:
         if alert.raised:
-            log.info("resolved: %s", alert.text)
-        if alert.delivered and not self._deliver(f"✅ Mailroom: resolved\n{alert.text}"):
+            log.info("resolved: %s", i18n.alert_text("en", alert.kind, alert.values))
+        if alert.delivered and not self._deliver("resolved_header", alert.kind, alert.values):
             return  # tell the owner it is over before forgetting it
         self._store.delete_alert(alert.key)
 
@@ -160,18 +155,21 @@ class HealthMonitor:
             self._outage_since = since
         elif self._outage_since is not None:
             if now - self._outage_since >= self._alert_after:
-                self._outage_notices.append(
-                    f"⚠️ Mailroom alert\nTelegram could not be reached from {_clock(self._outage_since)} "
-                    f"to {_clock(now)}. Messages received meanwhile were forwarded late."
-                )
+                self._outage_notices.append({"start": _clock(self._outage_since), "end": _clock(now)})
             self._outage_since = None
-        self._outage_notices = [notice for notice in self._outage_notices if not self._deliver(notice)]
+        self._outage_notices = [
+            notice
+            for notice in self._outage_notices
+            if not self._deliver("alert_header", "telegram_outage", notice)
+        ]
 
-    def _deliver(self, text: str) -> bool:
+    def _deliver(self, header: str, kind: str, values: dict) -> bool:
         if self._send is None:
             return False
         try:
-            self._send(text)
+            self._send(
+                i18n.text(self._language, header) + "\n" + i18n.alert_text(self._language, kind, values)
+            )
         except Exception:
             return False
         return True

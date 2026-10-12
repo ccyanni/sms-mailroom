@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block style %}
+    .alert { display: flex; gap: 10px; background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; font-size: 0.92rem; }
+    .alert svg { color: var(--warn); margin-top: 2px; }
+    .alert small { color: var(--muted); }
+    .summary { font-size: 0.88rem; color: var(--muted); margin: 2px 0 12px; }
+    .sim, .panel { padding: 14px; margin-bottom: 12px; display: grid; gap: 12px; }
+    .sim-head { display: flex; align-items: center; gap: 10px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--ok); }
+    .dot.bad { background: var(--danger); }
+    .dot.warn { background: var(--warn); }
+    .dot.unknown { background: var(--muted); }
+    h2 { font-size: 1rem; min-width: 0; overflow-wrap: anywhere; }
+    .state { margin-left: auto; flex: none; font-size: 0.82rem; font-weight: 600; color: var(--ok); }
+    .state.bad { color: var(--danger); }
+    .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 0.88rem; }
+    .facts dt { color: var(--muted); }
+    .facts dd { min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; vertical-align: -1px; margin-right: 6px; }
+    .bars i { width: 4px; border-radius: 1px; background: var(--line); }
+    .bars i.on { background: var(--ok); }
+    .sim-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+    .sim-foot > form { display: contents; }
+    .switch { display: flex; align-items: center; gap: 10px; min-height: 44px; border: 0; background: none; padding: 0; font-size: 0.92rem; }
+    .track { width: 44px; height: 26px; border-radius: 99px; background: var(--muted); position: relative; flex: none; }
+    .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--surface); transition: transform 0.15s; }
+    .switch[aria-checked="true"] .track { background: var(--accent); }
+    .switch[aria-checked="true"] .track::after { transform: translateX(18px); }
+    .rename { margin-left: auto; }
+    .rename[open] { flex-basis: 100%; margin-left: 0; }
+    .rename[open] > summary { display: none; }
+    .rename form { display: flex; gap: 8px; }
+    .rename input { flex: 1; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 0 10px; }
+    .rows { display: grid; gap: 10px; }
+    .rows li { display: grid; grid-template-columns: 10px 1fr; column-gap: 10px; align-items: baseline; font-size: 0.9rem; }
+    .rows .dot { align-self: center; }
+    .rows small { grid-column: 2; color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
+    .rows b { font-weight: 600; }
+{% endblock %}
+{% block content %}
+    {% for text, since in alerts %}
+    <div class="alert" role="status">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15H3z"/><path d="M12 10v4M12 16.5v.5"/></svg>
+      <p><span class="alert-text">{{ text }}</span><br><small>{{ t.since }} {{ since }}</small></p>
+    </div>
+    {% endfor %}
+
+    {% if sims %}
+    <p class="summary">{{ t.sims_summary.format(total=sims|length, good=good_sims) }}</p>
+    <ul>
+      {% for s in sims %}
+      <li class="sim card">
+        <div class="sim-head"><span class="dot{{ '' if s.good else ' bad' }}"></span><h2>{{ s.label }}</h2><span class="state{{ '' if s.good else ' bad' }}">{{ t.receiving if s.good else t.not_receiving }}</span></div>
+        <dl class="facts">
+          <dt>{{ t.number }}</dt><dd><span class="number">{{ s.number }}</span></dd>
+          <dt>{{ t.network }}</dt><dd><span class="operator">{{ s.operator }}</span> · <span class="registration">{{ s.registration }}</span></dd>
+          <dt>{{ t.signal }}</dt><dd><span class="bars" aria-hidden="true">{% for height in (5, 8, 11, 14) %}<i class="{{ 'on' if loop.index <= s.bars else '' }}" style="height:{{ height }}px"></i>{% endfor %}</span><span class="signal">{{ s.signal }}</span></dd>
+          <dt>{{ t.last_message }}</dt><dd><span class="last">{{ s.last }}</span></dd>
+          <dt>{{ t.modem }}</dt><dd>{{ ("IMEI " ~ s.modem) if s.modem else "–" }}</dd>
+        </dl>
+        <div class="sim-foot">
+          <form method="post" action="/sims/{{ s.iccid }}/forwarding">
+            <input type="hidden" name="enabled" value="{{ 0 if s.forwarding else 1 }}">
+            <button class="switch" role="switch" aria-checked="{{ 'true' if s.forwarding else 'false' }}"><span class="track"></span><span class="forwarding-setting">{{ t.forwarding_on if s.forwarding else t.forwarding_off }}</span></button>
+          </form>
+          <details class="rename">
+            <summary class="link">{{ t.rename }}</summary>
+            <form method="post" action="/sims/{{ s.iccid }}/label">
+              <input type="text" name="label" value="{{ s.label }}" maxlength="60" aria-label="{{ t.sim_label }}">
+              <button class="btn primary">{{ t.save }}</button>
+            </form>
+          </details>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="summary">{{ t.no_sims }}</p>
+    {% endif %}
+
+    <section class="panel card">
+      <h2>{{ t.modems }}</h2>
+      {% if modems %}
+      <ul class="rows">
+        {% for m in modems %}
+        <li><span class="dot{{ '' if m.good else ' warn' }}"></span><span class="modem">{{ m.imei }} ({{ m.state }})</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">{{ t.no_modems }}</p>
+      {% endif %}
+    </section>
+
+    <section class="panel card">
+      <h2>{{ t.system }}</h2>
+      <ul class="rows">
+        {% for row in system %}
+        <li class="sys-row" data-level="{{ row.level }}"><span class="dot{{ '' if row.level == 'ok' else ' ' ~ row.level }}"></span><span><b>{{ row.name }}</b> <span class="muted">· <span class="sys-state">{{ row.state }}</span></span></span><small>{{ row.note }}</small></li>
+        {% endfor %}
+      </ul>
+    </section>
+{% endblock %}

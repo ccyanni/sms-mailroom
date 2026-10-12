@@ -39,7 +39,7 @@ def page(modems, mailroom):
 
 
 def shown(page, **params) -> list[str]:
-    return re.findall(r'<p class="text">(.*?)</p>', page.get("/", params=params).text, flags=re.S)
+    return re.findall(r'<span class="text">(.*?)</span>', page.get("/", params=params).text, flags=re.S)
 
 
 def delete_path(page, text: str) -> str:
@@ -57,8 +57,8 @@ def test_list_can_be_limited_to_one_sim(page):
 def test_chosen_sim_stays_selected_in_the_filter(page):
     html = page.get("/", params={"sim": CHINA}).text
 
-    assert f'<option value="{CHINA}" selected>' in html
-    assert f'<option value="{TAIWAN}" selected>' not in html
+    assert f'data-sim="{CHINA}" aria-current="true"' in html
+    assert f'data-sim="{TAIWAN}" aria-current="false"' in html
 
 
 @pytest.mark.parametrize(
@@ -131,7 +131,7 @@ def test_page_refreshes_itself_from_its_own_address(page):
     html = page.get("/", params={"sim": CHINA}).text
 
     assert "fetch(location.href" in html
-    assert 'id="messages"' in html and 'id="live"' in html
+    assert 'id="refresh"' in html
 
 
 def test_page_is_laid_out_for_a_phone(page):

@@ -22,11 +22,11 @@ def page(transport, tmp_path):
 
 
 def shown_messages(page) -> list[str]:
-    return re.findall(r'<p class="text">(.*?)</p>', page.get("/").text, flags=re.S)
+    return re.findall(r'<span class="text">(.*?)</span>', page.get("/").text, flags=re.S)
 
 
 def shown_modems(page) -> list[str]:
-    return re.findall(r'class="modem">(\d+) ', page.get("/").text)
+    return re.findall(r'class="modem">(\d+) ', page.get("/status").text)
 
 
 def first_modem() -> FakeModem:
@@ -38,7 +38,7 @@ def second_modem() -> FakeModem:
 
 
 def test_modem_plugged_in_after_startup_starts_receiving(transport, page):
-    assert "No Modems attached." in page.get("/").text
+    assert "No Modems attached." in page.get("/status").text
     modem = first_modem()
 
     transport.plug(modem)

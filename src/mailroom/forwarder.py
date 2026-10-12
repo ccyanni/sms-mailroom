@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable
 from zoneinfo import ZoneInfo
 
+from mailroom import i18n
 from mailroom.store import SENT, SENT_INCOMPLETE, SKIPPED, Store, StoredMessage
 
 log = logging.getLogger(__name__)
@@ -23,13 +24,17 @@ class Forwarder:
         send: Callable[[str], None] | None,
         part_timeout: float = 60.0,
         interval: float = 2.0,
+        language: str = i18n.DEFAULT_LANGUAGE,
     ) -> None:
         """`send` delivers one text to Telegram and raises if it could not; None means Telegram is not set up."""
         self._store = store
         self._send = send
         self._part_timeout = timedelta(seconds=part_timeout)
         self._interval = interval
+        self._language = language
         self._failing = False
+        self.configured = send is not None
+        self.last_sent_at: datetime | None = None  # the last Message Telegram accepted since startup
         self.failing_since: datetime | None = None  # when Telegram stopped accepting Messages
 
     def run(self, stop: threading.Event) -> None:
@@ -47,7 +52,7 @@ class Forwarder:
                 continue
             follow_up = message.forward_state == SENT_INCOMPLETE
             try:
-                self._send(format_message(message, follow_up))
+                self._send(format_message(message, follow_up, self._language))
             except Exception as exc:
                 if not self._failing:
                     log.warning("could not forward to Telegram, will keep trying: %s", exc)
@@ -58,15 +63,16 @@ class Forwarder:
                 log.info("forwarding to Telegram works again")
             self._failing = False
             self.failing_since = None
+            self.last_sent_at = datetime.now(timezone.utc)
             self._store.set_forward_state(message.id, SENT if message.complete else SENT_INCOMPLETE)
         return True
 
 
-def format_message(message: StoredMessage, follow_up: bool = False) -> str:
+def format_message(message: StoredMessage, follow_up: bool = False, language: str = "en") -> str:
     time = message.sent_at.astimezone(TAIPEI).strftime("%Y-%m-%d %H:%M:%S")
     lines = [f"📩 {message.sim_label} ← {message.sender}", time]
     if not message.complete:
-        lines.append("⚠️ Incomplete: some parts have not arrived")
+        lines.append(i18n.text(language, "message_incomplete"))
     elif follow_up:
-        lines.append("✅ Now complete (sent earlier with parts missing)")
+        lines.append(i18n.text(language, "message_completed"))
     return "\n".join(lines) + "\n\n" + message.text

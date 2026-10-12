@@ -20,6 +20,7 @@ class Config:
     alert_after_minutes: float = 3.0
     access: AccessSettings | None = None
     allow_unauthenticated: bool = False  # local development only
+    language: str = "zh"  # Telegram texts, and the page until the owner picks another
 
 
 def load(path: Path | None = None) -> Config:
@@ -44,7 +45,14 @@ def load(path: Path | None = None) -> Config:
         alert_after_minutes=float(data.get("alerts", {}).get("after_minutes", 3.0)),
         access=AccessSettings(_team_domain(str(team_domain)), str(audience)) if team_domain else None,
         allow_unauthenticated=bool(access.get("allow_unauthenticated", False)),
+        language=_language(path, data.get("language", "zh")),
     )
+
+
+def _language(path: Path, value: object) -> str:
+    if value not in ("zh", "en"):
+        raise ValueError(f'{path}: language must be "zh" or "en"')
+    return str(value)
 
 
 def _team_domain(value: str) -> str:

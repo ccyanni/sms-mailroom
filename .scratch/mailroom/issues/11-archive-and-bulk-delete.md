@@ -4,12 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A Message can be archived and moved back to the inbox
-- [ ] The inbox lists only Messages that are not archived; the Archive lists only archived ones
-- [ ] Search and the SIM filter work in both
-- [ ] Archiving does not change whether or when a Message is forwarded
-- [ ] Several selected Messages are deleted in one action, after a confirmation step
-- [ ] "Select all" selects only the Messages currently listed
-- [ ] Existing databases are upgraded with every Message in the inbox
+- [x] A Message can be archived and moved back to the inbox
+- [x] The inbox lists only Messages that are not archived; the Archive lists only archived ones
+- [x] Search and the SIM filter work in both
+- [x] Archiving does not change whether or when a Message is forwarded
+- [x] Several selected Messages are deleted in one action, after a confirmation step
+- [x] "Select all" selects only the Messages currently listed
+- [x] Existing databases are upgraded with every Message in the inbox

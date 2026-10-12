@@ -50,6 +50,7 @@ def main() -> None:
         alert_after=settings.alert_after_minutes * 60,
         network_service_enabled=network_service_enabled,
         access=access,
+        language=settings.language,
     )
     uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("MAILROOM_PORT", "8000")), log_level="warning")
 

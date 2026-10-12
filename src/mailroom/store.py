@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from mailroom.pdu import Delivery, PduError, decode_deliver
 
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 4
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sims (
     iccid  TEXT PRIMARY KEY,
@@ -28,7 +29,8 @@ CREATE TABLE messages (
     complete     INTEGER NOT NULL,
     concat_ref   INTEGER,
     concat_total INTEGER,
-    forward_state TEXT NOT NULL DEFAULT 'pending'
+    forward_state TEXT NOT NULL DEFAULT 'pending',
+    archived      INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE parts (
     id          INTEGER PRIMARY KEY,
@@ -45,7 +47,8 @@ CREATE TABLE parts (
 _ALERTS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS alerts (
     key       TEXT PRIMARY KEY,
-    text      TEXT NOT NULL,
+    kind      TEXT NOT NULL,
+    params    TEXT NOT NULL,
     since     TEXT NOT NULL,
     raised    INTEGER NOT NULL DEFAULT 0,
     delivered INTEGER NOT NULL DEFAULT 0
@@ -74,6 +77,7 @@ class StoredMessage:
     complete: bool
     forward_state: str = PENDING
     forwarding: bool = True
+    archived: bool = False
 
 
 @dataclass(frozen=True)
@@ -90,7 +94,8 @@ class StoredAlert:
     """A problem Mailroom has noticed and is tracking until it goes away."""
 
     key: str
-    text: str
+    kind: str  # which problem; i18n turns it into words
+    values: dict  # the particulars: which SIM, which Modem, how many
     since: datetime
     raised: bool  # it has lasted long enough to be worth telling the owner
     delivered: bool  # the owner has been told on Telegram
@@ -102,6 +107,9 @@ class Store:
         self._lock = threading.Lock()
         with self._lock, self._db:
             self._migrate()
+            columns = {row[1] for row in self._db.execute("PRAGMA table_info(alerts)")}
+            if columns and "kind" not in columns:
+                self._db.execute("DROP TABLE alerts")  # an earlier layout; alerts are rebuilt as problems recur
             self._db.executescript(_ALERTS_SCHEMA)
 
     def close(self) -> None:
@@ -151,14 +159,15 @@ class Store:
         incomplete_received_before: datetime | None = None,
         sim_iccid: str | None = None,
         search: str | None = None,
+        archived: bool = False,
     ) -> list[StoredMessage]:
-        """Messages, newest first, optionally only one SIM's and only those containing `search`.
+        """The inbox, or the Archive, newest first; optionally one SIM's and only Messages containing `search`.
 
         A Message still missing Parts is left out until it has waited since
         `incomplete_received_before`, so that Parts in transit are not shown as a broken Message.
         """
         cutoff = (incomplete_received_before or datetime.max.replace(tzinfo=timezone.utc)).isoformat()
-        where, values = ["(m.complete OR m.received_at <= ?)"], [cutoff]
+        where, values = ["(m.complete OR m.received_at <= ?)", "m.archived = ?"], [cutoff, archived]
         if sim_iccid:
             where.append("m.sim_iccid = ?")
             values.append(sim_iccid)
@@ -173,11 +182,22 @@ class Store:
             ).fetchall()
         return [_stored(row) for row in rows]
 
-    def delete_message(self, message_id: int) -> None:
-        """Remove a Message and its Parts for good."""
+    def count_messages(self) -> tuple[int, int]:
+        """How many Messages are in the inbox and in the Archive."""
+        with self._lock:
+            counts = dict(self._db.execute("SELECT archived, COUNT(*) FROM messages GROUP BY archived"))
+        return counts.get(0, 0), counts.get(1, 0)
+
+    def set_archived(self, message_id: int, archived: bool) -> None:
         with self._lock, self._db:
-            self._db.execute("DELETE FROM parts WHERE message_id = ?", (message_id,))
-            self._db.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+            self._db.execute("UPDATE messages SET archived = ? WHERE id = ?", (archived, message_id))
+
+    def delete_messages(self, message_ids: list[int]) -> None:
+        """Remove Messages and their Parts for good."""
+        with self._lock, self._db:
+            for message_id in message_ids:
+                self._db.execute("DELETE FROM parts WHERE message_id = ?", (message_id,))
+                self._db.execute("DELETE FROM messages WHERE id = ?", (message_id,))
 
     def awaiting_forwarding(self, incomplete_received_before: datetime) -> list[StoredMessage]:
         """Messages owed to Telegram, oldest first.
@@ -202,18 +222,25 @@ class Store:
     def list_alerts(self) -> list[StoredAlert]:
         with self._lock:
             rows = self._db.execute(
-                "SELECT key, text, since, raised, delivered FROM alerts ORDER BY since, key"
+                "SELECT key, kind, params, since, raised, delivered FROM alerts ORDER BY since, key"
             ).fetchall()
         return [
-            StoredAlert(key, text, datetime.fromisoformat(since), bool(raised), bool(delivered))
-            for key, text, since, raised, delivered in rows
+            StoredAlert(key, kind, json.loads(params), datetime.fromisoformat(since), bool(raised), bool(delivered))
+            for key, kind, params, since, raised, delivered in rows
         ]
 
     def save_alert(self, alert: StoredAlert) -> None:
         with self._lock, self._db:
             self._db.execute(
-                "INSERT OR REPLACE INTO alerts (key, text, since, raised, delivered) VALUES (?, ?, ?, ?, ?)",
-                (alert.key, alert.text, _utc(alert.since), alert.raised, alert.delivered),
+                "INSERT OR REPLACE INTO alerts (key, kind, params, since, raised, delivered) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    alert.key,
+                    alert.kind,
+                    json.dumps(alert.values, ensure_ascii=False),
+                    _utc(alert.since),
+                    alert.raised,
+                    alert.delivered,
+                ),
             )
 
     def delete_alert(self, key: str) -> None:
@@ -303,40 +330,51 @@ class Store:
         tables = {name for (name,) in self._db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         if "messages" not in tables:
             self._db.executescript(_SCHEMA)
+        elif version < 2:
+            # Version 1 kept one row per PDU; replay them so split Messages are joined.
+            earlier = self._db.execute(
+                "SELECT sim_iccid, pdu, received_at FROM messages ORDER BY id"
+            ).fetchall()
+            self._db.execute("DROP TABLE messages")
+            self._db.execute("ALTER TABLE sims ADD COLUMN forwarding INTEGER NOT NULL DEFAULT 1")
+            self._db.executescript(_SCHEMA)
+            for iccid, pdu, received_at in earlier:
+                try:
+                    self._add(iccid, pdu, decode_deliver(pdu), datetime.fromisoformat(received_at))
+                except PduError:
+                    continue
+            # Messages from before Forwarding existed are history, not news.
+            self._db.execute("UPDATE messages SET forward_state = ?", (SKIPPED,))
         else:
-            if version < 2:
-                # Version 1 kept one row per PDU; replay them so split Messages are joined.
-                earlier = self._db.execute(
-                    "SELECT sim_iccid, pdu, received_at FROM messages ORDER BY id"
-                ).fetchall()
-                self._db.execute("DROP TABLE messages")
-                self._db.execute("ALTER TABLE sims ADD COLUMN forwarding INTEGER NOT NULL DEFAULT 1")
-                self._db.executescript(_SCHEMA)
-                for iccid, pdu, received_at in earlier:
-                    try:
-                        self._add(iccid, pdu, decode_deliver(pdu), datetime.fromisoformat(received_at))
-                    except PduError:
-                        continue
-            else:
+            if version < 3:
                 self._db.execute("ALTER TABLE sims ADD COLUMN forwarding INTEGER NOT NULL DEFAULT 1")
                 self._db.execute(
                     "ALTER TABLE messages ADD COLUMN forward_state TEXT NOT NULL DEFAULT 'pending'"
                 )
-            # Messages from before Forwarding existed are history, not news.
-            self._db.execute("UPDATE messages SET forward_state = ?", (SKIPPED,))
+                self._db.execute("UPDATE messages SET forward_state = ?", (SKIPPED,))
+            if version < 4:
+                self._db.execute("ALTER TABLE messages ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
         self._db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
 
 _SELECT_MESSAGE = (
-    "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete, m.forward_state, s.forwarding "
+    "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete, m.forward_state, s.forwarding, m.archived "
     "FROM messages m JOIN sims s ON s.iccid = m.sim_iccid "
 )
 
 
 def _stored(row: tuple) -> StoredMessage:
-    id_, label, sender, text, sent_at, complete, forward_state, forwarding = row
+    id_, label, sender, text, sent_at, complete, forward_state, forwarding, archived = row
     return StoredMessage(
-        id_, label, sender, text, datetime.fromisoformat(sent_at), bool(complete), forward_state, bool(forwarding)
+        id_,
+        label,
+        sender,
+        text,
+        datetime.fromisoformat(sent_at),
+        bool(complete),
+        forward_state,
+        bool(forwarding),
+        bool(archived),
     )
 
 

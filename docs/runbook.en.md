@@ -19,7 +19,9 @@ Both daemons start at boot, before anyone logs in, and restart if they stop.
 
 ## Everyday operations
 
-- **Is it working?** Open the web page. The top line lists the attached Modems and their state; each SIM shows its operator, signal and registration. Anything wrong is listed in a yellow box, and has also been sent to Telegram.
+- **Is it working?** Open the web page and go to Status. Each SIM has a card with its operator, signal and registration; below are the attached Modems and the state of the system itself (service, Telegram, macOS network service, USB connection, page protection). Anything wrong is listed in a yellow box at the top, marks the Status tab with a red dot, and has also been sent to Telegram.
+- **Tidying Messages:** under Messages, tap a Message to open it. Archive what is worth keeping; delete the rest. To delete several at once, tap Select and tick them, or search first and tap Select all.
+- **Language and appearance:** the gear at the top right switches between 中文 and English, and between following the system, light and dark.
 - **Read the log:** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
 - **Restart** (after editing `config.toml` or updating the code): `sudo launchctl kickstart -k system/us.b612.mailroom`
 - **Stop and remove the service:** `sudo scripts/install-service.sh uninstall`
@@ -41,6 +43,8 @@ The page at `http://127.0.0.1:8000` answers 403 on the Mac itself: every request
 `config.toml`, with every section Mailroom reads:
 
 ```toml
+language = "zh"     # optional; "zh" or "en". Used for Telegram texts, and for the page until you pick another there
+
 [telegram]
 token = "<bot token from @BotFather>"
 chat_id = "<the owner's chat id>"

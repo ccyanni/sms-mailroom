@@ -28,7 +28,7 @@ def mailroom(modem, tmp_path):
 
 
 def shown_messages(page) -> list[str]:
-    return re.findall(r'<p class="text">(.*?)</p>', page.get("/").text, flags=re.S)
+    return re.findall(r'<span class="text">(.*?)</span>', page.get("/").text, flags=re.S)
 
 
 def test_message_delivered_to_a_modem_appears_on_the_page(modem, mailroom):
@@ -119,7 +119,7 @@ def test_each_message_is_shown_with_the_sim_that_received_it(mailroom):
         wait_for(lambda: len(shown_messages(page)) == 2)
         html = page.get("/").text
 
-    by_text = {text: sim for sim, text in re.findall(r'class="sim-label">(.*?)</span>.*?class="text">(.*?)</p>', html, flags=re.S)}
+    by_text = {text: sim for sim, text in re.findall(r'class="sim-label">(.*?)</span>.*?class="text">(.*?)</span>', html, flags=re.S)}
     assert by_text == {"to taiwan": "+886900000001", "to unnamed": "SIM …4832"}
 
 

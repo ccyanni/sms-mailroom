@@ -4,14 +4,14 @@
 
 **Blocked by:** 11
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Messages and Status are separate sections with a tab bar; the Status tab shows a mark while any Alert is active
-- [ ] A Message shows sender, how long ago it arrived, its SIM and two lines of text; opening it shows the full text, the exact time and its Forwarding state
-- [ ] A 4 to 8 digit code in a Message is shown on its own with a copy button
-- [ ] Deleting needs a second, explicit confirmation
-- [ ] The page is in Traditional Chinese by default; the owner can switch to English and the choice is remembered
-- [ ] Forwarded Messages and Alerts on Telegram use the configured language (Chinese by default)
-- [ ] Appearance can be set to follow the system, light or dark, and the choice is remembered
-- [ ] Touch targets are at least 44 px, text contrast is at least 4.5:1 in both appearances, and nothing scrolls sideways on a phone
-- [ ] The page keeps refreshing itself without disturbing an open Message, a selection or a field being typed in
+- [x] Messages and Status are separate sections with a tab bar; the Status tab shows a mark while any Alert is active
+- [x] A Message shows sender, how long ago it arrived, its SIM and two lines of text; opening it shows the full text, the exact time and its Forwarding state
+- [x] A 4 to 8 digit code in a Message is shown on its own with a copy button
+- [x] Deleting needs a second, explicit confirmation
+- [x] The page is in Traditional Chinese by default; the owner can switch to English and the choice is remembered
+- [x] Forwarded Messages and Alerts on Telegram use the configured language (Chinese by default)
+- [x] Appearance can be set to follow the system, light or dark, and the choice is remembered
+- [ ] Touch targets are at least 44 px, text contrast is at least 4.5:1 in both appearances, and nothing scrolls sideways on a phone (built to these; not yet checked on a real phone)
+- [x] The page keeps refreshing itself without disturbing an open Message, a selection or a field being typed in

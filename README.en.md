@@ -101,6 +101,14 @@ The program is a single Python process: one thread per modem receives messages, 
 - A modem occasionally reports a read error, which is retried automatically; the cause is not yet known.
 - Messages are stored unencrypted in the local SQLite database.
 
+## How this was built
+
+Almost all of the code, tests and documentation in this project were written by an AI (Anthropic's Claude) under the author's direction. The author supplied the requirements, made the design decisions, handled the hardware and verified the result on it.
+
+What has been verified in practice: on one Mac mini, two A7672G modems with a Taiwan Mobile SIM and a roaming China Mobile SIM, receiving SMS, forwarding to Telegram, and signing in to the page through Cloudflare Access. The automated tests use a simulated modem and need no hardware.
+
+This program handles verification codes. Review the code yourself before deploying it, in particular the access check in `src/mailroom/access.py`.
+
 ## License
 
 [MIT](./LICENSE)

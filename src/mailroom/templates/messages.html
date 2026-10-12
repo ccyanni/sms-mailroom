@@ -21,6 +21,17 @@
     .code b { font: 600 1.25rem/1.2 var(--mono); letter-spacing: 0.12em; color: var(--accent); }
     .code span { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
     .code button { margin-left: auto; }
+    .url { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    .golink { border: 1px solid var(--line); border-radius: 8px; }
+    .golink > summary { min-height: 44px; padding: 8px 12px; display: flex; align-items: center; gap: 8px; color: var(--accent); font-size: 0.9rem; overflow-wrap: anywhere; }
+    .golink > summary span { min-width: 0; }
+    .golink[open] { border-color: var(--warn-line); background: var(--warn-soft); }
+    .golink[open] > summary { border-bottom: 1px solid var(--warn-line); }
+    .caution { padding: 10px 12px 12px; display: grid; gap: 8px; font-size: 0.9rem; }
+    .caution strong { color: var(--warn); }
+    .caution .host { font: 600 1.05rem/1.3 var(--mono); overflow-wrap: anywhere; }
+    .caution .href { font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
+    .caution .btn { justify-self: start; }
     .meta { font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
     .actions form { display: contents; }
@@ -78,7 +89,7 @@
           {% endif %}
             <span class="row1"><span class="sender">{{ m.sender }}</span><span class="ago">{{ m.ago }}</span></span>
             <span class="row2"><span class="tag sim-tag"><span class="sim-label">{{ m.sim }}</span></span>{% if not m.complete %}<span class="tag warn incomplete">{{ t.incomplete }}</span>{% endif %}</span>
-            <span class="text">{{ m.text }}</span>
+            <span class="text">{% if selecting %}{{ m.text }}{% else %}{% for part in m.parts %}{% if part.link %}<a class="url" href="#link-{{ m.id }}-{{ part.link }}">{{ part.text }}</a>{% else %}{{ part.text }}{% endif %}{% endfor %}{% endif %}</span>
           {% if selecting %}
           </label>
           {% else %}
@@ -87,6 +98,17 @@
             {% if m.code %}
             <div class="code"><span>{{ t.code }}</span><b>{{ m.code }}</b><button type="button" class="btn" data-copy="{{ m.code }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="10" height="11" rx="1.5"/><path d="M15 9V6a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3"/></svg>{{ t.copy_code }}</button></div>
             {% endif %}
+            {% for l in m.links %}
+            <details class="golink" id="link-{{ m.id }}-{{ l.n }}">
+              <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M11 7H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-5"/></svg><span>{{ l.href }}</span></summary>
+              <div class="caution">
+                <strong>{{ t.link_warning_title }}</strong>
+                <span>{{ t.link_warning }}</span>
+                <span>{{ t.link_goes_to }}<br><span class="host">{{ l.host }}</span></span>
+                <a class="btn" href="{{ l.href }}" target="_blank" rel="noopener noreferrer">{{ t.link_open }}</a>
+              </div>
+            </details>
+            {% endfor %}
             <div class="meta">{{ t.received }} <time>{{ m.time }}</time> · <span class="forwarding">{{ m.forwarding }}</span></div>
             <div class="actions">
               <form method="post" action="/messages/{{ m.id }}/archive">
@@ -135,6 +157,15 @@
             var range = document.createRange(); range.selectNodeContents(copy.previousElementSibling);
             var selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
           });
+      }
+      var address = event.target.closest("a.url");
+      if (address) {  // a link in the text leads to its warning, never straight to the site
+        event.preventDefault();
+        var caution = document.getElementById(address.hash.slice(1));
+        address.closest("details").open = true;
+        caution.open = true;
+        caution.scrollIntoView({ block: "nearest" });
+        caution.querySelector("summary").focus();
       }
       if (event.target.closest("#pick-all")) {
         var boxes = Array.from(document.querySelectorAll(".pick"));

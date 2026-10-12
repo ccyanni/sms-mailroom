@@ -40,6 +40,11 @@ _STRINGS: dict[str, dict[str, str]] = {
         "delete": "Delete",
         "delete_confirm": "Delete for good",
         "delete_warning": "This cannot be undone.",
+        "link_warning_title": "Watch out for scams",
+        "link_warning": "A link in an SMS may lead to a fake site. Open it only if you trust the sender and the "
+        "address below is the one you expect, and do not enter passwords, codes or card details on the page it opens.",
+        "link_goes_to": "This link goes to:",
+        "link_open": "I understand, open the link",
         "forward_pending": "not forwarded yet",
         "forward_sent": "forwarded",
         "forward_skipped": "not forwarded",
@@ -170,6 +175,11 @@ _STRINGS: dict[str, dict[str, str]] = {
         "delete": "刪除",
         "delete_confirm": "永久刪除",
         "delete_warning": "刪除後無法復原。",
+        "link_warning_title": "小心詐騙",
+        "link_warning": "簡訊裡的連結可能通往假冒的網站。確定寄件者可信、下面的網址也是你預期的再開啟；"
+        "不要在開啟的頁面輸入密碼、驗證碼或信用卡資料。",
+        "link_goes_to": "這個連結會前往：",
+        "link_open": "我了解，開啟連結",
         "forward_pending": "等待轉發",
         "forward_sent": "已轉發",
         "forward_skipped": "未轉發",

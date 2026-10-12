@@ -40,6 +40,12 @@ _CODE = re.compile(
     r"(?<![\d:/$¥-])(?<!\d\.)(?<![A-Za-z])\d{4,8}(?!\d)(?![.:/]\d)(?![年月日元])"
     r"|(?<=[A-Za-z]-)\d{4,8}(?!\d)(?![.:/]\d)"
 )
+# A web address in a Message: one that says http(s):// or www., or a bare domain followed by a path.
+_URL_CHARS = r"[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]"
+_URL = re.compile(
+    rf"(?:https?://|www\.){_URL_CHARS}+|(?<![A-Za-z0-9@._-])(?:[A-Za-z0-9-]+\.)+[A-Za-z]{{2,}}/{_URL_CHARS}*",
+    re.IGNORECASE,
+)
 _UNSTABLE_WINDOW = timedelta(minutes=30)
 _UNSTABLE_DROPS = 3
 _templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
@@ -148,6 +154,7 @@ def create_app(
                     "complete": m.complete,
                     "forwarding": i18n.text(lang, _FORWARD_LABELS[m.forward_state]),
                     "code": code.group() if code else None,
+                    **_with_links(m.text),
                 }
             )
         inbox_count, archived_count = store.count_messages(**found)
@@ -353,3 +360,32 @@ def _from_another_site(request: Request) -> bool:
     if request.method in ("GET", "HEAD") or not origin:
         return False
     return urlsplit(origin).netloc != request.headers.get("host")
+
+
+def _with_links(text: str) -> dict:
+    """Split a Message's text around the web addresses in it.
+
+    `parts` is the text in order, each piece with the number of the link it is or None; `links` are the distinct
+    addresses, with the host each one really leads to, which is what the owner should look at before opening it.
+    """
+    parts, links, numbers, end = [], [], {}, 0
+    for match in _URL.finditer(text):
+        shown = match.group().rstrip(".,;:!?'\"")
+        for opening, closing in ("()", "[]"):  # a bracket that only closes belongs to the sentence around it
+            if shown.endswith(closing) and opening not in shown:
+                shown = shown[:-1].rstrip(".,;:!?'\"")
+        href = shown if shown.lower().startswith(("http://", "https://")) else "https://" + shown
+        try:
+            host = urlsplit(href).hostname
+        except ValueError:
+            host = None
+        if not host or "." not in host:
+            continue
+        if href not in numbers:
+            numbers[href] = len(links) + 1
+            links.append({"n": numbers[href], "href": href, "host": host})
+        parts.append({"text": text[end : match.start()], "link": None})
+        parts.append({"text": shown, "link": numbers[href]})
+        end = match.start() + len(shown)
+    parts.append({"text": text[end:], "link": None})
+    return {"parts": parts, "links": links}

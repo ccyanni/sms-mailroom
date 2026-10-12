@@ -6,11 +6,23 @@ Mailroom lets an always-on Mac receive your SMS for you. Put each SIM in a USB 4
 
 It exists to fix one specific annoyance: a handful of SIMs kept only for verification codes, each sitting in a phone left at home, unreachable when you are out, with codes that expire in minutes.
 
+English interface:
+
 <p>
-  <img src="./docs/images/messages-en.png" alt="Messages" width="260">
-  <img src="./docs/images/status-en.png" alt="Status" width="260">
-  <img src="./docs/images/messages-dark.png" alt="Dark appearance" width="260">
+  <img src="./docs/images/messages-en.png" alt="Messages (English interface)" width="260">
+  <img src="./docs/images/status-en.png" alt="Status (English interface)" width="260">
+  <img src="./docs/images/messages-dark-en.png" alt="Dark appearance (English interface)" width="260">
 </p>
+
+Chinese interface:
+
+<p>
+  <img src="./docs/images/messages-zh.png" alt="簡訊（中文介面）" width="260">
+  <img src="./docs/images/status-zh.png" alt="狀態（中文介面）" width="260">
+  <img src="./docs/images/messages-dark-zh.png" alt="深色外觀（中文介面）" width="260">
+</p>
+
+The numbers, modems and messages shown are sample data.
 
 ## Features
 

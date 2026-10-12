@@ -6,11 +6,23 @@ Mailroom 讓一台不關機的 Mac 替你收簡訊。把 SIM 卡插在 USB 4G �
 
 它是為了解決一個具體的麻煩：幾張只用來收驗證碼的 SIM 卡，原本各自插在一支留在家裡的手機上，人不在家就收不到，而驗證碼幾分鐘就過期。
 
+中文介面：
+
 <p>
-  <img src="./docs/images/messages-zh.png" alt="簡訊" width="260">
-  <img src="./docs/images/status-zh.png" alt="狀態" width="260">
-  <img src="./docs/images/messages-dark.png" alt="深色外觀" width="260">
+  <img src="./docs/images/messages-zh.png" alt="簡訊（中文介面）" width="260">
+  <img src="./docs/images/status-zh.png" alt="狀態（中文介面）" width="260">
+  <img src="./docs/images/messages-dark-zh.png" alt="深色外觀（中文介面）" width="260">
 </p>
+
+英文介面：
+
+<p>
+  <img src="./docs/images/messages-en.png" alt="Messages (English interface)" width="260">
+  <img src="./docs/images/status-en.png" alt="Status (English interface)" width="260">
+  <img src="./docs/images/messages-dark-en.png" alt="Dark appearance (English interface)" width="260">
+</p>
+
+畫面中的門號、模組和簡訊都是範例資料。
 
 ## 功能
 

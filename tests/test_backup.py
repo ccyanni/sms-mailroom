@@ -142,6 +142,13 @@ def test_backups_can_be_read_only_by_the_owner(mailroom, backups):
     assert stat.S_IMODE((backups / "mailroom-2026-10-12.db").stat().st_mode) == 0o600
 
 
+def test_database_can_be_read_only_by_the_owner(mailroom, tmp_path):
+    with mailroom():
+        pass
+
+    assert stat.S_IMODE((tmp_path / "mailroom.db").stat().st_mode) == 0o600
+
+
 def test_status_shows_the_last_backup(mailroom, backups):
     with mailroom() as page:
         wait_for(lambda: (backups / "mailroom-2026-10-12.db").exists())

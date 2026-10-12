@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 from dataclasses import dataclass
@@ -104,6 +105,7 @@ class StoredAlert:
 class Store:
     def __init__(self, path: Path | str) -> None:
         self._db = sqlite3.connect(path, check_same_thread=False)
+        os.chmod(path, 0o600)  # Messages are stored in plain text
         self._lock = threading.Lock()
         with self._lock, self._db:
             self._migrate()

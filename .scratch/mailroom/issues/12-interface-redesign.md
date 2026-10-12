@@ -13,5 +13,5 @@
 - [x] The page is in Traditional Chinese by default; the owner can switch to English and the choice is remembered
 - [x] Forwarded Messages and Alerts on Telegram use the configured language (Chinese by default)
 - [x] Appearance can be set to follow the system, light or dark, and the choice is remembered
-- [ ] Touch targets are at least 44 px, text contrast is at least 4.5:1 in both appearances, and nothing scrolls sideways on a phone (built to these; not yet checked on a real phone)
+- [x] Touch targets are at least 44 px, text contrast is at least 4.5:1 in both appearances, and nothing scrolls sideways on a phone (built to these; 2026-10-12: the owner went through the page on a real phone and reported everything working, without measuring sizes or contrast)
 - [x] The page keeps refreshing itself without disturbing an open Message, a selection or a field being typed in

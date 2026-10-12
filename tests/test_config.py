@@ -82,3 +82,13 @@ def test_unsupported_language_is_an_error(tmp_path):
 
     with pytest.raises(ValueError, match='language must be "zh" or "en"'):
         config.load(path)
+
+
+def test_backups_go_beside_the_database_unless_told_otherwise(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[backup]\ndirectory = "~/elsewhere"\nkeep = 30\n')
+
+    default, custom = config.load(tmp_path / "absent.toml"), config.load(path)
+
+    assert (default.backup_dir, default.backup_keep) == (config.DATA_DIR / "backups", 14)
+    assert (custom.backup_dir, custom.backup_keep) == (config.Path.home() / "elsewhere", 30)

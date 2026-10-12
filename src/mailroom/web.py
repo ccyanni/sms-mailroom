@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from mailroom import i18n
+from mailroom.backup import Backups
 from mailroom.access import COOKIE, HEADER, AccessPolicy, OpenAccess
 from mailroom.forwarder import Forwarder
 from mailroom.health import HealthMonitor
@@ -56,6 +57,10 @@ def create_app(
     language: str | None = None,
     start_notice: str | None = None,
     start_notice_after: float = 15.0,
+    backup_dir: Path | str | None = None,
+    backup_keep: int = 14,
+    backup_check_every: float = 300.0,
+    backup_today: Callable[[], date] | None = None,
 ) -> FastAPI:
     """`language` is used for Telegram texts and for the page until the owner picks another."""
     access = access or OpenAccess()
@@ -77,6 +82,11 @@ def create_app(
         start_notice_after,
     )
     service.add_background(monitor.run)
+    backups = None
+    if backup_dir is not None:
+        clock = {"today": backup_today} if backup_today else {}
+        backups = Backups(store, backup_dir, backup_keep, backup_check_every, **clock)
+        service.add_background(backups.run)
     started_at = datetime.now(timezone.utc)
 
     @asynccontextmanager
@@ -249,6 +259,16 @@ def create_app(
             unstable = max(counts.values()) >= _UNSTABLE_DROPS
             note = "；".join(i18n.text(lang, "sys_usb_drops", imei=imei, count=count) for imei, count in counts.items())
             rows.append(row("sys_usb", "sys_usb_bad" if unstable else "sys_usb_some", note, "warn" if unstable else "ok"))
+
+        if backups is not None:
+            latest = backups.latest()
+            when = latest.isoformat() if latest else t["sys_backup_none"]
+            if backups.failing or latest is None:
+                note = i18n.text(lang, "sys_backup_failing_note", date=when)
+                rows.append(row("sys_backup", "sys_backup_failing", note, "warn"))
+            else:
+                note = i18n.text(lang, "sys_backup_ok_note", date=when, count=len(backups.existing()))
+                rows.append(row("sys_backup", "sys_backup_ok", note))
 
         if isinstance(access, OpenAccess):
             rows.append(row("sys_access", "sys_access_off", t["sys_access_off_note"], "warn"))

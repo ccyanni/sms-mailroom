@@ -116,6 +116,15 @@ class Store:
         with self._lock:
             self._db.close()
 
+    def backup_to(self, path: Path | str) -> None:
+        """Write a consistent copy of the whole database to `path`."""
+        with self._lock:
+            copy = sqlite3.connect(path)
+            try:
+                self._db.backup(copy)
+            finally:
+                copy.close()
+
     def register_sim(self, iccid: str, number: str | None) -> None:
         """Record a SIM the first time it is seen; a known SIM keeps its label."""
         label = number or f"SIM …{iccid[-4:]}"

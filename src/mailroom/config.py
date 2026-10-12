@@ -21,6 +21,8 @@ class Config:
     access: AccessSettings | None = None
     allow_unauthenticated: bool = False  # local development only
     language: str = "zh"  # Telegram texts, and the page until the owner picks another
+    backup_dir: Path = DATA_DIR / "backups"
+    backup_keep: int = 14
 
 
 def load(path: Path | None = None) -> Config:
@@ -46,6 +48,8 @@ def load(path: Path | None = None) -> Config:
         access=AccessSettings(_team_domain(str(team_domain)), str(audience)) if team_domain else None,
         allow_unauthenticated=bool(access.get("allow_unauthenticated", False)),
         language=_language(path, data.get("language", "zh")),
+        backup_dir=Path(data.get("backup", {}).get("directory", DATA_DIR / "backups")).expanduser(),
+        backup_keep=int(data.get("backup", {}).get("keep", 14)),
     )
 
 

@@ -52,6 +52,8 @@ def main() -> None:
         access=access,
         language=settings.language,
         start_notice="boot" if booted_recently() else "restart",
+        backup_dir=settings.backup_dir,
+        backup_keep=settings.backup_keep,
     )
     uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("MAILROOM_PORT", "8000")), log_level="warning")
 

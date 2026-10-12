@@ -20,6 +20,7 @@ It exists to fix one specific annoyance: a handful of SIMs kept only for verific
 - **Status at a glance**: each SIM's operator, roaming state and signal, and the state of the system itself.
 - **Alerts**: when a SIM drops off the network, a modem disappears or keeps disconnecting, or Telegram is unreachable, you are told on Telegram, and told again when it is over.
 - **Start notice**: every time the service starts you are told, and whether the Mac had just booted or only the service restarted.
+- **Daily backups**: the database is copied once a day, and the last 14 days are kept.
 - **Long messages reassembled**: an SMS the network split into parts becomes one message, even when the parts arrive out of order.
 - **Traditional Chinese and English**, light and dark appearance.
 - **Yours only**: the page is served on the loopback address, published through a Cloudflare Tunnel, and every request's Cloudflare Access token is verified.
@@ -91,6 +92,9 @@ audience = "<the Access application's AUD tag>"
 
 [alerts]
 after_minutes = 3   # optional; how long a problem must last before you are told
+
+[backup]
+keep = 14           # optional; how many days of backups to keep
 ```
 
 ## How it works
@@ -118,7 +122,6 @@ The program is a single Python process: one thread per modem receives messages, 
 Not built yet, and may be added later:
 
 - [ ] Sending SMS
-- [ ] Regular database backups
 - [ ] Forgetting a SIM: removing one that is no longer used from the list
 
 ## How this was built

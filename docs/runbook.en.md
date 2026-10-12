@@ -13,6 +13,7 @@ How to run, check and change the Mailroom installation on the Mac mini. Vocabula
 | Tunnel | `cloudflared`, its own launchd daemon (`com.cloudflare.cloudflared`) |
 | Settings | `~/Library/Application Support/Mailroom/config.toml` (private; holds the Telegram bot token) |
 | Database | `~/Library/Application Support/Mailroom/mailroom.db` |
+| Backups | `~/Library/Application Support/Mailroom/backups/`, one per day, 14 kept, readable only by the owner |
 | Logs | `~/Library/Logs/Mailroom/mailroom.log` (rotated at 5 MB, three old files kept) |
 
 Both daemons start at boot, before anyone logs in, and restart if they stop.
@@ -30,6 +31,24 @@ Both daemons start at boot, before anyone logs in, and restart if they stop.
 - **Update the code:** pull, run `uv sync`, run `uv run pytest`, then restart the service.
 
 The page at `http://127.0.0.1:8000` answers 403 on the Mac itself: every request must come through Cloudflare Access.
+
+## Backup and restore
+
+The database is backed up when the service starts and then once a day (after midnight, Taipei time), as `mailroom-YYYY-MM-DD.db`; files beyond the number to keep are removed. The system card under Status shows the date of the last backup and flags a failure.
+
+Backups stay on the same computer. They recover a damaged or mistakenly emptied database, not a failed disk. For an off-machine copy, include the backup directory in Time Machine or point `directory` at another disk. Backup files contain the Messages in plain text.
+
+To restore:
+
+```bash
+sudo launchctl bootout system/us.b612.mailroom            # stop the service
+cd ~/Library/Application\ Support/Mailroom
+mv mailroom.db mailroom.db.broken                         # keep the current database, just in case
+cp backups/mailroom-2026-10-12.db mailroom.db             # put back the day you want
+cd <the repository> && sudo scripts/install-service.sh    # start the service again
+```
+
+Messages received after that backup are not in it; they are still in the Telegram chat.
 
 ## Hardware
 
@@ -56,6 +75,10 @@ audience = "<the Access application's AUD tag>"
 
 [alerts]
 after_minutes = 3   # optional; how long a problem must last before an Alert is sent
+
+[backup]
+directory = "~/Library/Application Support/Mailroom/backups"   # optional; where backups go
+keep = 14           # optional; how many to keep
 ```
 
 Without `[telegram]`, Messages are stored but not forwarded. Without `[access]`, the page is locked.

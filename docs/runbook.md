@@ -15,6 +15,7 @@
 | Tunnel | `cloudflared`，另一個 launchd 系統服務（`com.cloudflare.cloudflared`） |
 | 設定檔 | `~/Library/Application Support/Mailroom/config.toml`（僅限本人讀取，內含 Telegram 機器人的 token） |
 | 資料庫 | `~/Library/Application Support/Mailroom/mailroom.db` |
+| 備份 | `~/Library/Application Support/Mailroom/backups/`，每天一份，保留 14 份，僅限本人讀取 |
 | 紀錄檔 | `~/Library/Logs/Mailroom/mailroom.log`（滿 5 MB 自動輪替，保留三份舊檔） |
 
 兩個服務都在開機時啟動，不需要先登入；停止時會自動重新啟動。
@@ -32,6 +33,24 @@
 - **更新程式：** 取得新版程式碼，執行 `uv sync`，執行 `uv run pytest`，然後重新啟動服務。
 
 在 Mac mini 上直接開 `http://127.0.0.1:8000` 會得到 403：所有請求都必須經過 Cloudflare Access。
+
+## 備份與還原
+
+服務啟動時，以及之後每天（台北時間換日後）會備份一次資料庫，檔名是 `mailroom-YYYY-MM-DD.db`，超過保留份數的舊檔會自動刪除。「狀態」分頁的系統卡片會顯示最近一次備份的日期；備份失敗時會標示出來。
+
+備份放在同一台電腦上，可以救回損毀或誤刪的資料庫，但救不了硬碟故障。需要異地備份的話，請把備份資料夾納入 Time Machine，或在設定檔把 `directory` 指到別的磁碟。備份檔含有簡訊的明文內容。
+
+還原的步驟：
+
+```bash
+sudo launchctl bootout system/us.b612.mailroom            # 停止服務
+cd ~/Library/Application\ Support/Mailroom
+mv mailroom.db mailroom.db.broken                         # 保留現有的資料庫，以防萬一
+cp backups/mailroom-2026-10-12.db mailroom.db             # 換成要還原的那一天
+cd <專案資料夾> && sudo scripts/install-service.sh         # 重新啟動服務
+```
+
+備份之後才收到的簡訊不在備份裡；它們在 Telegram 聊天室中仍然看得到。
 
 ## 硬體
 
@@ -58,6 +77,10 @@ audience = "<Access 應用程式的 AUD 標籤>"
 
 [alerts]
 after_minutes = 3   # 選填；問題持續多久之後才發異常通知
+
+[backup]
+directory = "~/Library/Application Support/Mailroom/backups"   # 選填；備份放在哪裡
+keep = 14           # 選填；保留幾份
 ```
 
 沒有 `[telegram]` 時，簡訊只存檔、不轉發。沒有 `[access]` 時，網頁會鎖住。

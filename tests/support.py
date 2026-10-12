@@ -120,8 +120,9 @@ def build_pdu(
     text: str,
     sent_at: datetime = datetime(2026, 10, 11, 23, 34, 7, tzinfo=TAIPEI_TIME),
     encoding: str = "ucs2",
+    part: tuple[int, int, int] | None = None,
 ) -> str:
-    """Build a single-Part SMS-DELIVER PDU."""
+    """Build an SMS-DELIVER PDU; `part` is (reference, total, sequence) for one Part of a long SMS."""
     smsc = "0791889623844906"
     if sender.lstrip("+").isdigit():
         digits = sender.lstrip("+")
@@ -136,7 +137,12 @@ def build_pdu(
     else:
         body = _pack_septets(text)
         dcs, length = "00", len(text)
-    return f"{smsc}04{address}00{dcs}{_timestamp(sent_at)}{length:02X}{body.hex().upper()}"
+    first_octet = "04"
+    if part is not None:
+        assert encoding == "ucs2", "the builder only splits UCS2 text"
+        body = bytes([0x05, 0x00, 0x03, *part]) + body
+        first_octet, length = "44", len(body)
+    return f"{smsc}{first_octet}{address}00{dcs}{_timestamp(sent_at)}{length:02X}{body.hex().upper()}"
 
 
 def _swap(digits: str) -> str:

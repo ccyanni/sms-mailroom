@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -23,6 +24,7 @@ def create_app(
     db_path: Path | str,
     poll_interval: float = 30.0,
     scan_interval: float = 2.0,
+    part_timeout: float = 60.0,
 ) -> FastAPI:
     store = Store(db_path)
     service = Service(transport, store, poll_interval, scan_interval)
@@ -46,8 +48,11 @@ def create_app(
                 "sender": m.sender,
                 "text": m.text,
                 "time": m.sent_at.astimezone(TAIPEI).strftime("%Y-%m-%d %H:%M:%S"),
+                "complete": m.complete,
             }
-            for m in store.list_messages()
+            for m in store.list_messages(
+                incomplete_received_before=datetime.now(timezone.utc) - timedelta(seconds=part_timeout)
+            )
         ]
         modems = [
             {"imei": m.imei or "unidentified", "state": m.state} for m in service.modems()

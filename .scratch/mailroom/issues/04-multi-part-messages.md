@@ -4,12 +4,12 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Parts of one SMS are assembled into one Message in sequence order
-- [ ] The captured reverse-order fixture from the spec decodes to its expected text
-- [ ] A Message missing a Part after one minute is visible and marked incomplete
-- [ ] A late Part completes the existing Message instead of creating a new one
-- [ ] A duplicate Part does not corrupt or duplicate the Message
-- [ ] Parts from different senders or different SIMs with the same concatenation reference are not mixed
-- [ ] The web page shows whether a Message is complete
+- [x] Parts of one SMS are assembled into one Message in sequence order
+- [x] The captured reverse-order fixture from the spec decodes to its expected text
+- [x] A Message missing a Part after one minute is visible and marked incomplete
+- [x] A late Part completes the existing Message instead of creating a new one
+- [x] A duplicate Part does not corrupt or duplicate the Message
+- [x] Parts from different senders or different SIMs with the same concatenation reference are not mixed
+- [x] The web page shows whether a Message is complete

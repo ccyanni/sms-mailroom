@@ -149,3 +149,26 @@ def test_modem_starts_receiving_once_its_sim_becomes_readable(modem, mailroom):
         modem.sim_present = True
 
         assert wait_for(lambda: shown_messages(page)) == ["after the SIM was seated"]
+
+
+def test_same_sms_delivered_twice_through_different_service_centres_is_stored_once(modem, mailroom):
+    # Captured from China Mobile: two deliveries eleven bytes apart only in the service centre address.
+    first = build_pdu("10086910", "验证码 662022")
+    second = first.replace("0791889623844906", "0791889623844916", 1)
+    assert first != second
+    with mailroom() as page:
+        modem.deliver(first)
+        wait_for(lambda: not modem.stored)
+        modem.deliver(second)
+        wait_for(lambda: not modem.stored)
+
+        assert shown_messages(page) == ["验证码 662022"]
+
+
+def test_same_text_sent_again_later_is_a_new_message(modem, mailroom):
+    taipei = timezone(timedelta(hours=8))
+    with mailroom() as page:
+        for minute in (1, 2):
+            modem.deliver(build_pdu("12345", "ok", sent_at=datetime(2026, 5, 1, 9, minute, tzinfo=taipei)))
+
+        wait_for(lambda: len(shown_messages(page)) == 2)

@@ -179,12 +179,25 @@ class Store:
 
     def _add(self, iccid: str, pdu: str, delivery: Delivery, received_at: datetime) -> bool:
         pdu = pdu.upper()
-        if self._db.execute(
-            "SELECT 1 FROM parts WHERE sim_iccid = ? AND pdu = ?", (iccid, pdu)
-        ).fetchone():
-            return False
         concat = delivery.concatenation
         sequence = concat.sequence if concat else 1
+        # Compared by content rather than by PDU: a network can deliver the same SMS
+        # twice through different service centres, which changes only the PDU's prefix.
+        if self._db.execute(
+            "SELECT 1 FROM parts p JOIN messages m ON m.id = p.message_id "
+            "WHERE p.sim_iccid = ? AND m.sender = ? AND p.sent_at = ? AND p.text = ? AND p.sequence = ? "
+            "AND m.concat_ref IS ? AND m.concat_total IS ?",
+            (
+                iccid,
+                delivery.sender,
+                _utc(delivery.sent_at),
+                delivery.text,
+                sequence,
+                concat.reference if concat else None,
+                concat.total if concat else None,
+            ),
+        ).fetchone():
+            return False
         message_id = self._message_awaiting(iccid, delivery) if concat else None
         if message_id is None:
             message_id = self._db.execute(

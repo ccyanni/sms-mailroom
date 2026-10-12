@@ -16,6 +16,7 @@ DEFAULT_PATH = DATA_DIR / "config.toml"
 @dataclass(frozen=True)
 class Config:
     telegram: TelegramSettings | None = None
+    alert_after_minutes: float = 3.0
 
 
 def load(path: Path | None = None) -> Config:
@@ -29,4 +30,9 @@ def load(path: Path | None = None) -> Config:
     token, chat_id = telegram.get("token"), telegram.get("chat_id")
     if bool(token) != bool(chat_id):
         raise ValueError(f"{path}: [telegram] needs both token and chat_id")
-    return Config(telegram=TelegramSettings(str(token), str(chat_id)) if token else None)
+    if data.get("mobile_data", {}).get("enabled", False):
+        raise ValueError(f"{path}: [mobile_data] enabled = true is not supported; Mailroom keeps mobile data off")
+    return Config(
+        telegram=TelegramSettings(str(token), str(chat_id)) if token else None,
+        alert_after_minutes=float(data.get("alerts", {}).get("after_minutes", 3.0)),
+    )

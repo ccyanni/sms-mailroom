@@ -4,13 +4,13 @@
 
 **Blocked by:** 03, 05, 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An Alert is sent when a SIM stays unregistered beyond a configurable number of minutes, and another when it registers again
-- [ ] An Alert is sent when a Modem disappears, and another when it returns
-- [ ] An Alert is sent when a SIM's storage is nearly full
-- [ ] An Alert about repeated Telegram failures is delivered once Telegram is reachable again, and the failure is visible on the web page meanwhile
-- [ ] A condition that persists produces one Alert, not a stream of them
-- [ ] Alerts are visually distinct from Messages and are sent even for SIMs with Forwarding off
-- [ ] With mobile data off, each Modem's USB network sharing is kept disabled
-- [ ] An Alert is raised at startup if the macOS network service "A76XX Series LTE Module" is enabled
+- [x] An Alert is sent when a SIM stays unregistered beyond a configurable number of minutes, and another when it registers again
+- [x] An Alert is sent when a Modem disappears, and another when it returns
+- [x] An Alert is sent when a SIM's storage is nearly full
+- [x] An Alert about repeated Telegram failures is delivered once Telegram is reachable again, and the failure is visible on the web page meanwhile
+- [x] A condition that persists produces one Alert, not a stream of them
+- [x] Alerts are visually distinct from Messages and are sent even for SIMs with Forwarding off
+- [x] With mobile data off, each Modem's USB network sharing is kept disabled
+- [x] An Alert is raised at startup if the macOS network service "A76XX Series LTE Module" is enabled

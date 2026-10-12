@@ -29,6 +29,8 @@ class FakeModem:
         self.operator = "Fake Telecom"
         self.signal = 28
         self.registration = 1  # 1 home, 5 roaming, 0 not registered
+        self.capacity = 40  # SIM storage slots
+        self.settings: list[str] = []  # configuration commands received
         self.times_closed = 0
         self.sim_present = True
         self.stored: dict[int, str] = {}
@@ -48,8 +50,12 @@ class FakeModem:
             return [self.imei]
         if not self.sim_present:
             raise ATError(f"{text}: +CME ERROR: SIM not inserted")
-        if text in ("AT+CMGF=0", "AT+CNMI=2,1,0,0,0", "AT+CATR=3", "AT+COPS=3,0"):
+        if text in ("AT+CMGF=0", "AT+CNMI=2,1,0,0,0", "AT+CATR=3", "AT+COPS=3,0", "AT+DIALMODE=1"):
+            self.settings.append(text)
             return []
+        if text == "AT+CPMS?":
+            used = len(self.stored)
+            return [f'+CPMS: "SM",{used},{self.capacity},"SM",{used},{self.capacity},"SM",{used},{self.capacity}']
         if text == "AT+CSQ":
             return [f"+CSQ: {self.signal},99"]
         if text == "AT+CEREG?":

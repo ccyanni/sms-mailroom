@@ -42,6 +42,16 @@ CREATE TABLE parts (
 );
 """
 
+_ALERTS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS alerts (
+    key       TEXT PRIMARY KEY,
+    text      TEXT NOT NULL,
+    since     TEXT NOT NULL,
+    raised    INTEGER NOT NULL DEFAULT 0,
+    delivered INTEGER NOT NULL DEFAULT 0
+);
+"""
+
 # Concatenation references are a single byte and get reused, so a Part only
 # joins a Message whose other Parts the network stamped around the same time.
 _SAME_MESSAGE_WINDOW = timedelta(days=1)
@@ -75,12 +85,24 @@ class StoredSim:
     last_message_at: datetime | None
 
 
+@dataclass(frozen=True)
+class StoredAlert:
+    """A problem Mailroom has noticed and is tracking until it goes away."""
+
+    key: str
+    text: str
+    since: datetime
+    raised: bool  # it has lasted long enough to be worth telling the owner
+    delivered: bool  # the owner has been told on Telegram
+
+
 class Store:
     def __init__(self, path: Path | str) -> None:
         self._db = sqlite3.connect(path, check_same_thread=False)
         self._lock = threading.Lock()
         with self._lock, self._db:
             self._migrate()
+            self._db.executescript(_ALERTS_SCHEMA)
 
     def close(self) -> None:
         with self._lock:
@@ -176,6 +198,27 @@ class Store:
     def set_forward_state(self, message_id: int, state: str) -> None:
         with self._lock, self._db:
             self._db.execute("UPDATE messages SET forward_state = ? WHERE id = ?", (state, message_id))
+
+    def list_alerts(self) -> list[StoredAlert]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT key, text, since, raised, delivered FROM alerts ORDER BY since, key"
+            ).fetchall()
+        return [
+            StoredAlert(key, text, datetime.fromisoformat(since), bool(raised), bool(delivered))
+            for key, text, since, raised, delivered in rows
+        ]
+
+    def save_alert(self, alert: StoredAlert) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT OR REPLACE INTO alerts (key, text, since, raised, delivered) VALUES (?, ?, ?, ?, ?)",
+                (alert.key, alert.text, _utc(alert.since), alert.raised, alert.delivered),
+            )
+
+    def delete_alert(self, key: str) -> None:
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM alerts WHERE key = ?", (key,))
 
     def _add(self, iccid: str, pdu: str, delivery: Delivery, received_at: datetime) -> bool:
         pdu = pdu.upper()

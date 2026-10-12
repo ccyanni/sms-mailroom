@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections import deque
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Callable
 
 from mailroom.forwarder import Forwarder
 from mailroom.receiver import NetworkStatus, Receiver
@@ -51,12 +54,17 @@ class Service:
         self._running: dict[str, _Running] = {}
         self._unopenable: set[str] = set()
         self._threads: list[threading.Thread] = []
+        self._background: list[Callable[[threading.Event], None]] = [forwarder.run]
+        self._disconnects: deque[tuple[datetime, str]] = deque(maxlen=200)
+
+    def add_background(self, run: Callable[[threading.Event], None]) -> None:
+        """Run `run(stop)` on its own thread for as long as the service is up."""
+        self._background.append(run)
 
     def start(self) -> None:
         self._scan()
-        self._threads = [
-            threading.Thread(target=self._supervise, daemon=True),
-            threading.Thread(target=self._forwarder.run, args=(self._stop,), daemon=True),
+        self._threads = [threading.Thread(target=self._supervise, daemon=True)] + [
+            threading.Thread(target=run, args=(self._stop,), daemon=True) for run in self._background
         ]
         for thread in self._threads:
             thread.start()
@@ -72,6 +80,11 @@ class Service:
         with self._lock:
             receivers = [running.receiver for running in self._running.values()]
         return [ModemStatus(r.imei, r.iccid, r.state, r.network) for r in receivers]
+
+    def disconnects_since(self, moment: datetime) -> list[str]:
+        """The IMEI of each Modem that dropped off after `moment`, once per drop."""
+        with self._lock:
+            return [imei for when, imei in self._disconnects if when >= moment]
 
     def _supervise(self) -> None:
         while not self._stop.wait(self._scan_interval):
@@ -91,6 +104,9 @@ class Service:
         for key, running in list(self._running.items()):
             if key not in present or not running.thread.is_alive():
                 self._retire(key)
+                if running.receiver.imei:
+                    with self._lock:
+                        self._disconnects.append((datetime.now(timezone.utc), running.receiver.imei))
         self._unopenable &= present
         for key in present - self._running.keys():
             self._adopt(key)

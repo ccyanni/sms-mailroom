@@ -30,6 +30,7 @@ class Forwarder:
         self._part_timeout = timedelta(seconds=part_timeout)
         self._interval = interval
         self._failing = False
+        self.failing_since: datetime | None = None  # when Telegram stopped accepting Messages
 
     def run(self, stop: threading.Event) -> None:
         delay = self._interval
@@ -51,10 +52,12 @@ class Forwarder:
                 if not self._failing:
                     log.warning("could not forward to Telegram, will keep trying: %s", exc)
                 self._failing = True
+                self.failing_since = self.failing_since or datetime.now(timezone.utc)
                 return False
             if self._failing:
                 log.info("forwarding to Telegram works again")
             self._failing = False
+            self.failing_since = None
             self._store.set_forward_state(message.id, SENT if message.complete else SENT_INCOMPLETE)
         return True
 

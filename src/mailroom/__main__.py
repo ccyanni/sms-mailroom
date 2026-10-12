@@ -9,6 +9,7 @@ from pathlib import Path
 import uvicorn
 
 from mailroom import config
+from mailroom.health import network_service_enabled
 from mailroom.usb import UsbTransport
 from mailroom.web import create_app
 
@@ -22,7 +23,13 @@ def main() -> None:
     settings = config.load()
     if settings.telegram is None:
         logging.getLogger(__name__).warning("Telegram is not set up; Messages will not be forwarded")
-    app = create_app(UsbTransport(), db_path, telegram=settings.telegram)
+    app = create_app(
+        UsbTransport(),
+        db_path,
+        telegram=settings.telegram,
+        alert_after=settings.alert_after_minutes * 60,
+        network_service_enabled=network_service_enabled,
+    )
     uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("MAILROOM_PORT", "8000")), log_level="warning")
 
 

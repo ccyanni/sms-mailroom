@@ -18,6 +18,7 @@
     .filter input[type=search] { flex: 1 1 10rem; min-width: 0; }
     .meta { color: #666; font-size: 0.85rem; overflow-wrap: anywhere; }
     .incomplete, .off { color: #b45309; }
+    .alerts li { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.4rem 0; }
     .text { margin: 0.25rem 0 0.4rem; white-space: pre-wrap; overflow-wrap: anywhere; }
     .delete button { font-size: 0.8rem; color: #b91c1c; background: none; border: 1px solid #e5b4b4; border-radius: 4px; }
   </style>
@@ -25,6 +26,12 @@
 <body>
   <h1>Mailroom</h1>
   <div id="live">
+    {% if alerts %}
+    <ul class="alerts">
+      {% for a in alerts %}<li class="alert">⚠️ {{ a }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     <p class="meta">
       {% if modems %}Modems:
       {% for m in modems %}<span class="modem">{{ m.imei }} ({{ m.state }})</span>{% if not loop.last %}, {% endif %}{% endfor %}

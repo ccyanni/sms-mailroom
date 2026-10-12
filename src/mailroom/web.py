@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Callable
 from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
 
@@ -13,6 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from mailroom.forwarder import Forwarder
+from mailroom.health import HealthMonitor
 from mailroom.service import Service
 from mailroom.store import PENDING, SENT, SENT_INCOMPLETE, SKIPPED, Store
 from mailroom.telegram import HttpPost, TelegramSettings, http_post, telegram_sender
@@ -37,11 +39,18 @@ def create_app(
     telegram: TelegramSettings | None = None,
     http_post: HttpPost = http_post,
     forward_interval: float = 2.0,
+    alert_after: float = 180.0,
+    health_interval: float = 5.0,
+    network_service_enabled: Callable[[], bool | None] | None = None,
 ) -> FastAPI:
     store = Store(db_path)
     send = telegram_sender(telegram, http_post) if telegram else None
     forwarder = Forwarder(store, send, part_timeout, forward_interval)
     service = Service(transport, store, forwarder, poll_interval, scan_interval)
+    monitor = HealthMonitor(
+        store, service, forwarder, send, alert_after, health_interval, network_service_enabled
+    )
+    service.add_background(monitor.run)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -95,7 +104,14 @@ def create_app(
         return _templates.TemplateResponse(
             request,
             "messages.html",
-            {"messages": rows, "modems": modems, "sims": sims, "sim": sim, "search": search},
+            {
+                "messages": rows,
+                "modems": modems,
+                "sims": sims,
+                "sim": sim,
+                "search": search,
+                "alerts": monitor.active_alerts(),
+            },
         )
 
     @app.post("/messages/{message_id}/delete")

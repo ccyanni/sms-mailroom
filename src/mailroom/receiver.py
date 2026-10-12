@@ -22,6 +22,7 @@ _IMEI = re.compile(r"^(\d{14,16})$")
 _CSQ = re.compile(r"\+CSQ:\s*(\d+),")
 _CEREG = re.compile(r"\+CEREG:\s*\d+,(\d+)")
 _COPS = re.compile(r'\+COPS:\s*\d+,\d+,"([^"]*)"')
+_CPMS = re.compile(r'\+CPMS:\s*"\w+",(\d+),(\d+)')
 
 RECEIVING = "receiving"
 HOME, ROAMING, NOT_REGISTERED = "home", "roaming", "not registered"
@@ -36,6 +37,8 @@ class NetworkStatus:
     operator: str | None = None
     signal: int | None = None  # 0 (weakest) to 31; None when the Modem cannot tell
     registration: str = NOT_REGISTERED
+    storage_used: int | None = None  # Messages waiting on the SIM
+    storage_total: int | None = None
 
 
 class Receiver:
@@ -112,6 +115,11 @@ class Receiver:
             except ATError:
                 pass
             try:
+                # Mobile data is off: keep the Modem from sharing its connection over USB.
+                self._link.command("AT+DIALMODE=1")
+            except ATError:
+                log.warning("Modem %s does not accept AT+DIALMODE=1", self._imei)
+            try:
                 number = _first_match(_CNUM, self._link.command("AT+CNUM")) or None
             except ATError:
                 number = None
@@ -122,10 +130,13 @@ class Receiver:
     def _network_status(self) -> NetworkStatus:
         signal = _first_match(_CSQ, self._query("AT+CSQ"))
         registration = _first_match(_CEREG, self._query("AT+CEREG?"))
+        storage = next(filter(None, map(_CPMS.search, self._query("AT+CPMS?"))), None)
         return NetworkStatus(
             operator=_first_match(_COPS, self._query("AT+COPS?")) or None,
             signal=int(signal) if signal and int(signal) <= _MAX_SIGNAL else None,
             registration=_REGISTRATION.get(registration, NOT_REGISTERED),
+            storage_used=int(storage.group(1)) if storage else None,
+            storage_total=int(storage.group(2)) if storage else None,
         )
 
     def _query(self, text: str) -> list[str]:

@@ -11,4 +11,4 @@
 - [x] Logs are written somewhere the owner can find, and never contain the bot token
 - [x] ~~A guided script walks the owner through creating the Telegram bot, the Cloudflare Tunnel and the Access application~~ The owner did these by hand on 2026-10-12; the steps are in `docs/runbook.md` instead of a script
 - [x] A runbook explains how to start, stop, update and check the service, and how to keep the Mac mini from sleeping
-- [ ] After a reboot, a real SMS reaches Telegram and the web page with no manual steps (service installed and verified running; reboot not yet tried)
+- [x] After a reboot, a real SMS reaches Telegram and the web page with no manual steps (2026-10-12: rebooted with three Modems attached; all three were receiving 3 minutes after shutdown and the owner confirmed the start notice, the web page and a test SMS. FileVault is on, so the password had to be typed at the machine first)

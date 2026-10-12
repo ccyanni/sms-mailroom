@@ -24,6 +24,10 @@ _Avoid_: Text, SMS record, notification
 One segment of a Message that the network delivered separately because the text was too long for a single SMS. A Message is incomplete while any of its Parts is missing.
 _Avoid_: Segment, fragment, chunk
 
+**Archive**:
+Where the owner keeps a Message worth holding on to, out of the inbox. An archived Message is still stored and searchable and can be moved back; archiving is not deleting.
+_Avoid_: Hide, dismiss, folder, read/unread
+
 **Forwarding**:
 Delivering a copy of a Message to the owner's Telegram chat. It is switched on or off per SIM.
 _Avoid_: Relay, push, notification

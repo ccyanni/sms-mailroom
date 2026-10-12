@@ -23,7 +23,7 @@ Both daemons start at boot, before anyone logs in, and restart if they stop.
 - **Is it working?** Open the web page and go to Status. Each SIM has a card with its operator, signal and registration; below are the attached Modems and the state of the system itself (service, Telegram, macOS network service, USB connection, page protection). Anything wrong is listed in a yellow box at the top, marks the Status tab with a red dot, and has also been sent to Telegram.
 - **Tidying Messages:** under Messages, tap a Message to open it. Archive what is worth keeping; delete the rest. To delete several at once, tap Select and tick them, or search first and tap Select all.
 - **Language and appearance:** the gear at the top right switches between 中文 and English, and between following the system, light and dark.
-- **Start notice:** about 15 seconds after the service starts, Telegram receives "🟢 SMS Mailroom started", saying whether the Mac had just booted or only the service restarted, and how many Modems are attached and SIMs receiving. Getting one you did not expect means the service crashed and restarted itself; read the log.
+- **Start notice:** about 15 seconds after the service starts, Telegram receives "🟢 Mailroom started", saying whether the Mac had just booted or only the service restarted, and how many Modems are attached and SIMs receiving. Getting one you did not expect means the service crashed and restarted itself; read the log.
 - **Read the log:** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
 - **Restart** (after editing `config.toml` or updating the code): `sudo launchctl kickstart -k system/us.b612.mailroom`
 - **Stop and remove the service:** `sudo scripts/install-service.sh uninstall`

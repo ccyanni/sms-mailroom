@@ -173,10 +173,10 @@ def test_telegram_texts_use_the_configured_language(modem, telegram, mailroom):
         wait_for(lambda: "(receiving)" in page.get("/status").text or "收訊中" in page.get("/status").text)
         modem.deliver(build_pdu("111", "前半，", part=(7, 2, 1)))
         modem.registration = 0
-        wait_for(lambda: any(text.startswith("⚠️ SMS Mailroom 異常通知") for text in telegram.texts))
+        wait_for(lambda: any(text.startswith("⚠️ Mailroom 異常通知") for text in telegram.texts))
 
-    alert = next(text for text in telegram.texts if text.startswith("⚠️ SMS Mailroom 異常通知"))
-    assert alert == "⚠️ SMS Mailroom 異常通知\nSIM「+886900000001」未在收訊：沒有註冊到電信網路。"
+    alert = next(text for text in telegram.texts if text.startswith("⚠️ Mailroom 異常通知"))
+    assert alert == "⚠️ Mailroom 異常通知\nSIM「+886900000001」未在收訊：沒有註冊到電信網路。"
 
 
 def test_alerts_on_the_page_follow_the_page_language(modem, mailroom):

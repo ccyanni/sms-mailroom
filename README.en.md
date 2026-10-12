@@ -40,6 +40,12 @@ The numbers, modems and messages shown are sample data.
 
 SMS Mailroom only receives SMS. It does not send messages, take calls, or use a SIM's mobile data.
 
+<p>
+  <img src="./docs/images/hardware.jpg" alt="Three A7672G modems in a USB hub, each with its antenna" width="360">
+</p>
+
+What it looks like: three A7672G modems in a powered USB hub, each antenna on the connector marked MANT.
+
 ## Warning: mobile data and roaming charges
 
 SMS Mailroom only receives SMS and never uses mobile data itself. But once a modem is on the network it sets up a data connection on its own, and **SMS Mailroom cannot switch that off**: torn down with an AT command, the modem brings it back within about 20 seconds.

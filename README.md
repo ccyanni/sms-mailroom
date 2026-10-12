@@ -40,6 +40,12 @@ SMS Mailroom 讓一台不關機的 Mac 替你收簡訊。把 SIM 卡插在 USB 4
 
 SMS Mailroom 只收簡訊。它不發簡訊、不接電話，也不會使用 SIM 卡的行動數據。
 
+<p>
+  <img src="./docs/images/hardware.jpg" alt="三片 A7672G 模組插在 USB 集線器上，各自接著天線" width="360">
+</p>
+
+實際的樣子：三片 A7672G 模組插在接了電源的 USB 集線器上，天線接在標示 MANT 的接座。
+
 ## 注意：行動數據與漫遊費用
 
 SMS Mailroom 只收簡訊，本身不會使用行動數據。但模組連上電信網路後，會自動建立一條數據連線，而且**無法從 SMS Mailroom 這一端關掉**：用 AT 指令切斷後，模組大約 20 秒內就會自己重新連上。

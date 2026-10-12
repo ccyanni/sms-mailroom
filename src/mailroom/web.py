@@ -18,9 +18,14 @@ TAIPEI = ZoneInfo("Asia/Taipei")
 _templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
-def create_app(transport: Transport, db_path: Path | str, poll_interval: float = 30.0) -> FastAPI:
+def create_app(
+    transport: Transport,
+    db_path: Path | str,
+    poll_interval: float = 30.0,
+    scan_interval: float = 2.0,
+) -> FastAPI:
     store = Store(db_path)
-    service = Service(transport, store, poll_interval)
+    service = Service(transport, store, poll_interval, scan_interval)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -44,6 +49,11 @@ def create_app(transport: Transport, db_path: Path | str, poll_interval: float =
             }
             for m in store.list_messages()
         ]
-        return _templates.TemplateResponse(request, "messages.html", {"messages": rows})
+        modems = [
+            {"imei": m.imei or "unidentified", "state": m.state} for m in service.modems()
+        ]
+        return _templates.TemplateResponse(
+            request, "messages.html", {"messages": rows, "modems": modems}
+        )
 
     return app

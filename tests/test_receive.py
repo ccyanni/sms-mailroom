@@ -18,7 +18,12 @@ def modem():
 @pytest.fixture
 def mailroom(modem, tmp_path):
     return lambda *modems: TestClient(
-        create_app(FakeTransport(*(modems or (modem,))), tmp_path / "mailroom.db", poll_interval=0.3)
+        create_app(
+            FakeTransport(*(modems or (modem,))),
+            tmp_path / "mailroom.db",
+            poll_interval=0.3,
+            scan_interval=0.05,
+        )
     )
 
 

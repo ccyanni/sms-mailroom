@@ -15,6 +15,11 @@
 </head>
 <body>
   <h1>Mailroom</h1>
+  <p class="meta">
+    {% if modems %}Modems:
+    {% for m in modems %}<span class="modem">{{ m.imei }} ({{ m.state }})</span>{% if not loop.last %}, {% endif %}{% endfor %}
+    {% else %}No Modems attached.{% endif %}
+  </p>
   {% if messages %}
   <ul>
     {% for m in messages %}

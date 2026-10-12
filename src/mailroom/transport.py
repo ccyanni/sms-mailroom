@@ -37,7 +37,15 @@ class ModemLink(Protocol):
 
 
 class Transport(Protocol):
-    """Finds the Modems that are attached."""
+    """Finds the Modems that are attached, which can change at any time."""
 
-    def links(self) -> list[ModemLink]:
+    def present(self) -> set[str]:
+        """Keys of the Modems attached right now.
+
+        A key stays the same for as long as its Modem stays attached; a Modem
+        that is unplugged and plugged back in comes back under a new key.
+        """
+        ...
+
+    def open(self, key: str) -> ModemLink:
         ...

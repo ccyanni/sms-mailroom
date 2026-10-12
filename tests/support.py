@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from mailroom.pdu import _GSM_BASIC
-from mailroom.transport import ATError
+from mailroom.transport import ATError, LinkLost
 
 TAIPEI_TIME = timezone(timedelta(hours=8))
 
@@ -15,10 +15,18 @@ TAIPEI_TIME = timezone(timedelta(hours=8))
 class FakeModem:
     """Answers the AT commands Mailroom uses and emits new-message indications."""
 
-    def __init__(self, iccid: str = "89886000000000000001", number: str | None = "+886900000001") -> None:
+    def __init__(
+        self,
+        iccid: str = "89886000000000000001",
+        number: str | None = "+886900000001",
+        imei: str = "860000000000001",
+    ) -> None:
         self.iccid = iccid
         self.number = number
-        self.imei = "860000000000001"
+        self.imei = imei
+        self.attached = True
+        self.link_failures = 0
+        self.times_closed = 0
         self.sim_present = True
         self.stored: dict[int, str] = {}
         self._indications: queue.Queue[str] = queue.Queue()
@@ -31,6 +39,8 @@ class FakeModem:
             self._indications.put(f'+CMTI: "SM",{index}')
 
     def command(self, text: str) -> list[str]:
+        if not self.attached:
+            raise LinkLost("Modem is unplugged")
         if text == "AT+CGSN":
             return [self.imei]
         if not self.sim_present:
@@ -54,21 +64,44 @@ class FakeModem:
         raise ATError(f"unsupported command: {text}")
 
     def wait_indication(self, timeout: float) -> str | None:
+        if self.link_failures:
+            self.link_failures -= 1
+            raise LinkLost("simulated link failure")
         try:
             return self._indications.get(timeout=timeout)
         except queue.Empty:
             return None
 
     def close(self) -> None:
-        pass
+        self.times_closed += 1
 
 
 class FakeTransport:
-    def __init__(self, *modems: FakeModem) -> None:
-        self._modems = list(modems)
+    """Modems can be plugged in and unplugged while Mailroom runs."""
 
-    def links(self) -> list[FakeModem]:
-        return self._modems
+    def __init__(self, *modems: FakeModem) -> None:
+        self._attached: dict[str, FakeModem] = {}
+        self._plugs = 0
+        self.refuse_to_open = False
+        for modem in modems:
+            self.plug(modem)
+
+    def plug(self, modem: FakeModem) -> None:
+        self._plugs += 1
+        modem.attached = True
+        self._attached[f"port-{self._plugs}"] = modem
+
+    def unplug(self, modem: FakeModem) -> None:
+        modem.attached = False
+        self._attached = {key: m for key, m in self._attached.items() if m is not modem}
+
+    def present(self) -> set[str]:
+        return set(self._attached)
+
+    def open(self, key: str) -> FakeModem:
+        if self.refuse_to_open:
+            raise LinkLost("simulated failure to open")
+        return self._attached[key]
 
 
 def wait_for(condition, timeout: float = 3.0):

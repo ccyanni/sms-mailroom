@@ -18,7 +18,7 @@ import usb.core
 import usb.util
 
 from mailroom.at import ATChannel
-from mailroom.transport import LinkLost
+from mailroom.transport import ATError, LinkLost
 
 VENDOR_ID = 0x1E0E
 PRODUCT_ID = 0x9011
@@ -46,9 +46,13 @@ class UsbModemLink:
         threading.Thread(target=self._pump, args=(primary_in, self._incoming.put), daemon=True).start()
         threading.Thread(target=self._pump, args=(secondary_in, _discard), daemon=True).start()
         self._channel = ATChannel(self._read, self._write)
-        while self._channel.wait_indication(0.2) is not None:
-            pass  # discard whatever the Modem said before Mailroom was listening
-        self._channel.command("ATE0")
+        try:
+            while self._channel.wait_indication(0.2) is not None:
+                pass  # discard whatever the Modem said before Mailroom was listening
+            self._channel.command("ATE0")
+        except ATError:
+            self.close()
+            raise
 
     def _open(self, number: int):
         """Claim an AT interface and return its bulk (out, in) endpoints."""
@@ -128,12 +132,21 @@ class UsbModemLink:
 class UsbTransport:
     def __init__(self) -> None:
         self._backend = usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
+        self._devices: dict[str, usb.core.Device] = {}
 
-    def links(self) -> list[UsbModemLink]:
+    def present(self) -> set[str]:
         devices = usb.core.find(
             find_all=True, idVendor=VENDOR_ID, idProduct=PRODUCT_ID, backend=self._backend
         )
-        return [UsbModemLink(device) for device in devices]
+        # The USB address is assigned afresh each time a Modem is plugged in.
+        self._devices = {f"{device.bus}:{device.address}": device for device in devices}
+        return set(self._devices)
+
+    def open(self, key: str) -> UsbModemLink:
+        try:
+            return UsbModemLink(self._devices[key])
+        except usb.core.USBError as exc:
+            raise LinkLost(str(exc)) from exc
 
 
 def _discard(data: bytes) -> None:

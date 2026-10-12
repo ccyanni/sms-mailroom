@@ -30,6 +30,14 @@ class Receiver:
         self._iccid: str | None = None
         self.state = "starting"
 
+    @property
+    def imei(self) -> str | None:
+        return self._imei
+
+    @property
+    def iccid(self) -> str | None:
+        return self._iccid
+
     def run(self, stop: threading.Event) -> None:
         """Collect Messages until `stop` is set: on every indication, and on a timer as a safety net."""
         last_collect = float("-inf")

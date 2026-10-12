@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] A Modem plugged in after startup begins receiving without a restart
-- [ ] Messages waiting on a newly attached Modem's SIM are collected
-- [ ] Unplugging a Modem does not crash Mailroom or interrupt other Modems
-- [ ] A Modem that is unplugged and plugged back in resumes receiving
-- [ ] Mailroom exposes which Modems are currently present, so later tickets can show and alert on it
-- [ ] Covered by automated tests using the fake Modem, and verified by hand with a real Modem
+- [x] A Modem plugged in after startup begins receiving without a restart
+- [x] Messages waiting on a newly attached Modem's SIM are collected
+- [x] Unplugging a Modem does not crash Mailroom or interrupt other Modems
+- [x] A Modem that is unplugged and plugged back in resumes receiving
+- [x] Mailroom exposes which Modems are currently present, so later tickets can show and alert on it
+- [ ] Covered by automated tests using the fake Modem, and verified by hand with a real Modem (automated tests done; hand verification pending)

@@ -172,13 +172,13 @@ class HealthMonitor:
         raised = alert.raised or now - alert.since >= grace
         if raised and not alert.raised:
             log.warning("alert: %s", i18n.alert_text("en", alert.kind, alert.values))
-        delivered = alert.delivered or (raised and self._deliver("alert_header", alert.kind, alert.values))
+        delivered = alert.delivered or (raised and self._deliver("alert_header", i18n.alert_text, alert.kind, alert.values))
         self._store.save_alert(StoredAlert(alert.key, alert.kind, alert.values, alert.since, raised, delivered))
 
     def _resolve(self, alert: StoredAlert) -> None:
         if alert.raised:
             log.info("resolved: %s", i18n.alert_text("en", alert.kind, alert.values))
-        if alert.delivered and not self._deliver("resolved_header", alert.kind, alert.values):
+        if alert.delivered and not self._deliver("resolved_header", i18n.resolved_text, alert.kind, alert.values):
             return  # tell the owner it is over before forgetting it
         self._store.delete_alert(alert.key)
 
@@ -194,13 +194,11 @@ class HealthMonitor:
         self._outage_notices = [
             notice
             for notice in self._outage_notices
-            if not self._deliver("alert_header", "telegram_outage", notice)
+            if not self._deliver("alert_header", i18n.alert_text, "telegram_outage", notice)
         ]
 
-    def _deliver(self, header: str, kind: str, values: dict) -> bool:
-        return self._send_text(
-            i18n.text(self._language, header) + "\n" + i18n.alert_text(self._language, kind, values)
-        )
+    def _deliver(self, header: str, describe, kind: str, values: dict) -> bool:
+        return self._send_text(i18n.text(self._language, header) + "\n" + describe(self._language, kind, values))
 
     def _send_text(self, text: str) -> bool:
         if self._send is None:

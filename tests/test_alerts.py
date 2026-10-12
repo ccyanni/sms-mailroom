@@ -78,7 +78,9 @@ def test_sim_off_the_network_raises_one_alert_and_another_when_it_recovers(modem
 
         modem.registration = 1
         wait_for(lambda: len(alerts(telegram)) == 2)
-        assert alerts(telegram)[1].startswith("✅ Mailroom: resolved\nSIM +886900000001 is not receiving")
+        assert alerts(telegram)[1] == (
+            "✅ Mailroom: resolved\nSIM +886900000001 is receiving again: it is registered on a mobile network."
+        )
         assert "is not receiving" not in page.get("/status").text
 
 
@@ -107,7 +109,7 @@ def test_modem_that_disappears_raises_an_alert_and_another_when_it_returns(trans
 
         transport.plug(modem)
         wait_for(lambda: len(alerts(telegram)) == 2)
-        assert alerts(telegram)[1].startswith("✅ Mailroom: resolved")
+        assert alerts(telegram)[1].startswith("✅ Mailroom: resolved\nSIM +886900000001 is receiving again: its Modem")
 
 
 def test_modem_that_drops_off_for_a_moment_stays_quiet(transport, modem, telegram, mailroom):

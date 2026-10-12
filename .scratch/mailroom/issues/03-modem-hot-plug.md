@@ -11,4 +11,4 @@
 - [x] Unplugging a Modem does not crash SMS Mailroom or interrupt other Modems
 - [x] A Modem that is unplugged and plugged back in resumes receiving
 - [x] SMS Mailroom exposes which Modems are currently present, so later tickets can show and alert on it
-- [ ] Covered by automated tests using the fake Modem, and verified by hand with a real Modem (automated tests done; hand verification pending)
+- [x] Covered by automated tests using the fake Modem, and verified by hand with a real Modem (2026-10-12: both Modems unplugged and replugged into other ports; each resumed receiving within a minute, and a Modem left out for 3 minutes raised an Alert that resolved on replug)

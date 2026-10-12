@@ -125,6 +125,12 @@ _STRINGS: dict[str, dict[str, str]] = {
         "alert_telegram_outage": "Telegram could not be reached from {start} to {end}. "
         "Messages received meanwhile were forwarded late.",
         "alert_telegram_down": "Telegram has not been reachable since {time}; Messages are waiting to be forwarded.",
+        "resolved_sim_absent": "SIM {label} is receiving again: its Modem is attached.",
+        "resolved_sim_unregistered": "SIM {label} is receiving again: it is registered on a mobile network.",
+        "resolved_storage": "SIM {label} has storage slots free again.",
+        "resolved_modem": "Modem {imei} is working again.",
+        "resolved_unstable": "Modem {imei} has stopped disconnecting.",
+        "resolved_network_service": 'The macOS network service "A76XX Series LTE Module" is disabled again.',
         "started_boot": "🟢 Mailroom started (the Mac has just booted)",
         "started_restart": "🟢 Mailroom started (the service restarted)",
         "started_summary": "{modems} Modems attached, {good} of {sims} SIMs receiving",
@@ -246,6 +252,12 @@ _STRINGS: dict[str, dict[str, str]] = {
         "請到「系統設定 → 網路」停用。",
         "alert_telegram_outage": "{start} 到 {end} 之間無法連上 Telegram，這段期間收到的簡訊延後轉發了。",
         "alert_telegram_down": "從 {time} 起無法連上 Telegram，簡訊正在等待轉發。",
+        "resolved_sim_absent": "SIM「{label}」恢復收訊：它的模組接回來了。",
+        "resolved_sim_unregistered": "SIM「{label}」恢復收訊：已註冊到電信網路。",
+        "resolved_storage": "SIM「{label}」的儲存空間已經空出來了。",
+        "resolved_modem": "模組 {imei} 恢復正常。",
+        "resolved_unstable": "模組 {imei} 不再斷線了。",
+        "resolved_network_service": "macOS 的網路服務「A76XX Series LTE Module」已經停用。",
         "started_boot": "🟢 Mailroom 已啟動（電腦剛重新開機）",
         "started_restart": "🟢 Mailroom 已啟動（服務重新啟動）",
         "started_summary": "接上 {modems} 片模組，{sims} 張 SIM 中有 {good} 張正常收訊",
@@ -270,6 +282,11 @@ def text(lang: str, key: str, **values: object) -> str:
 
 def alert_text(lang: str, kind: str, values: dict) -> str:
     return text(lang, f"alert_{kind}", **values)
+
+
+def resolved_text(lang: str, kind: str, values: dict) -> str:
+    """What is fine again, so the notice does not repeat the problem as if it were still there."""
+    return text(lang, f"resolved_{kind}", **values)
 
 
 def relative_time(lang: str, moment: datetime, now: datetime) -> str:

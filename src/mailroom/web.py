@@ -5,10 +5,11 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from mailroom.forwarder import Forwarder
@@ -60,7 +61,7 @@ def create_app(
                 "sim": m.sim_label,
                 "sender": m.sender,
                 "text": m.text,
-                "time": m.sent_at.astimezone(TAIPEI).strftime("%Y-%m-%d %H:%M:%S"),
+                "time": _taipei(m.sent_at),
                 "complete": m.complete,
                 "forwarding": _FORWARD_LABELS[m.forward_state],
             }
@@ -68,11 +69,55 @@ def create_app(
                 incomplete_received_before=datetime.now(timezone.utc) - timedelta(seconds=part_timeout)
             )
         ]
-        modems = [
-            {"imei": m.imei or "unidentified", "state": m.state} for m in service.modems()
-        ]
+        attached = service.modems()
+        in_modem = {m.iccid: m for m in attached if m.iccid}
+        sims = []
+        for sim in store.list_sims():
+            modem = in_modem.get(sim.iccid)
+            network = modem.network if modem else None
+            sims.append(
+                {
+                    "iccid": sim.iccid,
+                    "label": sim.label,
+                    "number": sim.number or "number unknown",
+                    "forwarding": sim.forwarding,
+                    "operator": (network and network.operator) or "–",
+                    "signal": f"{network.signal}/31" if network and network.signal is not None else "–",
+                    "registration": network.registration if network else "not in a Modem",
+                    "last": _taipei(sim.last_message_at) if sim.last_message_at else "never",
+                }
+            )
+        modems = [{"imei": m.imei or "unidentified", "state": m.state} for m in attached]
         return _templates.TemplateResponse(
-            request, "messages.html", {"messages": rows, "modems": modems}
+            request, "messages.html", {"messages": rows, "modems": modems, "sims": sims}
         )
 
+    @app.post("/sims/{iccid}/label")
+    async def rename_sim(iccid: str, request: Request):
+        label = (await _form(request)).get("label", "").strip()
+        if label:
+            store.rename_sim(iccid, label[:60])
+        return _back(request)
+
+    @app.post("/sims/{iccid}/forwarding")
+    async def set_forwarding(iccid: str, request: Request):
+        store.set_forwarding(iccid, (await _form(request)).get("enabled") == "1")
+        return _back(request)
+
     return app
+
+
+def _taipei(moment: datetime) -> str:
+    return moment.astimezone(TAIPEI).strftime("%Y-%m-%d %H:%M:%S")
+
+
+async def _form(request: Request) -> dict[str, str]:
+    fields = parse_qs((await request.body()).decode(), keep_blank_values=True)
+    return {name: values[-1] for name, values in fields.items()}
+
+
+def _back(request: Request) -> RedirectResponse:
+    """Return to the page the form was on, keeping its filter and search."""
+    referer = urlsplit(request.headers.get("referer", ""))
+    target = "/" + (f"?{referer.query}" if referer.path == "/" and referer.query else "")
+    return RedirectResponse(target, status_code=303)

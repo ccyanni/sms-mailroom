@@ -4,12 +4,12 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An unknown ICCID creates a SIM automatically and it receives immediately
-- [ ] The default label is the phone number, or the last four ICCID digits when no number is available
-- [ ] Forwarding is on by default for a new SIM
-- [ ] The owner can rename a SIM and the new label appears on its Messages
-- [ ] The owner can toggle Forwarding per SIM (the toggle takes effect once ticket 05 is in place)
-- [ ] The page shows operator, signal strength, registration state (home, roaming, not registered) and last Message time per SIM
-- [ ] Moving a SIM to another Modem keeps its label, Forwarding setting and Message history
+- [x] An unknown ICCID creates a SIM automatically and it receives immediately
+- [x] The default label is the phone number, or the last four ICCID digits when no number is available
+- [x] Forwarding is on by default for a new SIM
+- [x] The owner can rename a SIM and the new label appears on its Messages
+- [x] The owner can toggle Forwarding per SIM (the toggle takes effect once ticket 05 is in place)
+- [x] The page shows operator, signal strength, registration state (home, roaming, not registered) and last Message time per SIM
+- [x] Moving a SIM to another Modem keeps its label, Forwarding setting and Message history

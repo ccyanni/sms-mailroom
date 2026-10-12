@@ -7,7 +7,7 @@ import threading
 from dataclasses import dataclass
 
 from mailroom.forwarder import Forwarder
-from mailroom.receiver import Receiver
+from mailroom.receiver import NetworkStatus, Receiver
 from mailroom.store import Store
 from mailroom.transport import ATError, ModemLink, Transport
 
@@ -21,6 +21,7 @@ class ModemStatus:
     imei: str | None
     iccid: str | None
     state: str
+    network: NetworkStatus
 
 
 @dataclass
@@ -70,7 +71,7 @@ class Service:
     def modems(self) -> list[ModemStatus]:
         with self._lock:
             receivers = [running.receiver for running in self._running.values()]
-        return [ModemStatus(r.imei, r.iccid, r.state) for r in receivers]
+        return [ModemStatus(r.imei, r.iccid, r.state, r.network) for r in receivers]
 
     def _supervise(self) -> None:
         while not self._stop.wait(self._scan_interval):

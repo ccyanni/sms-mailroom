@@ -6,6 +6,7 @@ import logging
 import re
 import threading
 import time
+from dataclasses import dataclass
 
 from mailroom.pdu import PduError, decode_deliver
 from mailroom.store import Store
@@ -18,7 +19,23 @@ _CNUM = re.compile(r'\+CNUM:\s*"[^"]*","([^"]*)"')
 _ICCID = re.compile(r"\+ICCID:\s*(\w+)")
 _IMEI = re.compile(r"^(\d{14,16})$")
 
+_CSQ = re.compile(r"\+CSQ:\s*(\d+),")
+_CEREG = re.compile(r"\+CEREG:\s*\d+,(\d+)")
+_COPS = re.compile(r'\+COPS:\s*\d+,\d+,"([^"]*)"')
+
 RECEIVING = "receiving"
+HOME, ROAMING, NOT_REGISTERED = "home", "roaming", "not registered"
+_REGISTRATION = {"1": HOME, "5": ROAMING}
+_MAX_SIGNAL = 31
+
+
+@dataclass(frozen=True)
+class NetworkStatus:
+    """How a SIM is doing on the mobile network, as last reported by its Modem."""
+
+    operator: str | None = None
+    signal: int | None = None  # 0 (weakest) to 31; None when the Modem cannot tell
+    registration: str = NOT_REGISTERED
 
 
 class Receiver:
@@ -29,6 +46,7 @@ class Receiver:
         self._imei: str | None = None
         self._iccid: str | None = None
         self.state = "starting"
+        self.network = NetworkStatus()
 
     @property
     def imei(self) -> str | None:
@@ -48,12 +66,14 @@ class Receiver:
                 if new_message or time.monotonic() - last_collect >= self._poll_interval:
                     last_collect = time.monotonic()
                     self.collect()
+                    self.network = self._network_status()
                     self._report(RECEIVING)
             except LinkLost as exc:
                 self._report(f"lost: {exc}")
                 return
             except ATError as exc:
                 self._iccid = None  # identify the SIM afresh once it is readable again
+                self.network = NetworkStatus()
                 self._report(f"cannot receive: {exc}")
 
     def collect(self) -> None:
@@ -88,12 +108,34 @@ class Receiver:
             except ATError:
                 log.warning("Modem %s does not accept AT+CATR=3", self._imei)
             try:
+                self._link.command("AT+COPS=3,0")  # report the operator by name
+            except ATError:
+                pass
+            try:
                 number = _first_match(_CNUM, self._link.command("AT+CNUM")) or None
             except ATError:
                 number = None
             self._store.register_sim(iccid, number)
             self._iccid = iccid
         return self._iccid
+
+    def _network_status(self) -> NetworkStatus:
+        signal = _first_match(_CSQ, self._query("AT+CSQ"))
+        registration = _first_match(_CEREG, self._query("AT+CEREG?"))
+        return NetworkStatus(
+            operator=_first_match(_COPS, self._query("AT+COPS?")) or None,
+            signal=int(signal) if signal and int(signal) <= _MAX_SIGNAL else None,
+            registration=_REGISTRATION.get(registration, NOT_REGISTERED),
+        )
+
+    def _query(self, text: str) -> list[str]:
+        """A status query whose failure only means that detail is unknown."""
+        try:
+            return self._link.command(text)
+        except LinkLost:
+            raise
+        except ATError:
+            return []
 
     def _report(self, state: str) -> None:
         if state != self.state:

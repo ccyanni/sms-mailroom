@@ -7,10 +7,14 @@
   <style>
     body { font-family: system-ui, sans-serif; margin: 0 auto; max-width: 44rem; padding: 1rem; }
     h1 { font-size: 1.25rem; }
-    ul { list-style: none; padding: 0; }
+    h2 { font-size: 1rem; margin: 1.5rem 0 0.25rem; }
+    ul { list-style: none; padding: 0; margin: 0; }
     li { border-bottom: 1px solid #ddd; padding: 0.75rem 0; }
-    .meta { color: #666; font-size: 0.85rem; }
-    .incomplete { color: #b45309; }
+    form { display: inline; }
+    input[type=text] { font: inherit; padding: 0.2rem 0.4rem; max-width: 100%; box-sizing: border-box; }
+    button { font: inherit; padding: 0.2rem 0.6rem; }
+    .meta { color: #666; font-size: 0.85rem; overflow-wrap: anywhere; }
+    .incomplete, .off { color: #b45309; }
     .text { margin: 0.25rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   </style>
 </head>
@@ -21,11 +25,39 @@
     {% for m in modems %}<span class="modem">{{ m.imei }} ({{ m.state }})</span>{% if not loop.last %}, {% endif %}{% endfor %}
     {% else %}No Modems attached.{% endif %}
   </p>
+
+  {% if sims %}
+  <h2>SIMs</h2>
+  <ul>
+    {% for s in sims %}
+    <li class="sim">
+      <form method="post" action="/sims/{{ s.iccid }}/label">
+        <input type="text" name="label" value="{{ s.label }}" maxlength="60" aria-label="SIM label">
+        <button>Rename</button>
+      </form>
+      <div class="meta">
+        <span class="number">{{ s.number }}</span> ·
+        <span class="operator">{{ s.operator }}</span> ·
+        signal <span class="signal">{{ s.signal }}</span> ·
+        <span class="registration">{{ s.registration }}</span> ·
+        last Message <span class="last">{{ s.last }}</span>
+      </div>
+      <form method="post" action="/sims/{{ s.iccid }}/forwarding">
+        <input type="hidden" name="enabled" value="{{ 0 if s.forwarding else 1 }}">
+        <span class="forwarding-setting{{ '' if s.forwarding else ' off' }}">Forwarding {{ 'on' if s.forwarding else 'off' }}</span>
+        <button>Turn {{ 'off' if s.forwarding else 'on' }}</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <h2>Messages</h2>
   {% if messages %}
   <ul>
     {% for m in messages %}
     <li class="message">
-      <div class="meta"><span class="sim">{{ m.sim }}</span> · <span class="sender">{{ m.sender }}</span> · <time>{{ m.time }}</time>{% if not m.complete %} · <span class="incomplete">incomplete</span>{% endif %} · <span class="forwarding">{{ m.forwarding }}</span></div>
+      <div class="meta"><span class="sim-label">{{ m.sim }}</span> · <span class="sender">{{ m.sender }}</span> · <time>{{ m.time }}</time>{% if not m.complete %} · <span class="incomplete">incomplete</span>{% endif %} · <span class="forwarding">{{ m.forwarding }}</span></div>
       <p class="text">{{ m.text }}</p>
     </li>
     {% endfor %}

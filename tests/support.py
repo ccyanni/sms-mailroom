@@ -26,6 +26,9 @@ class FakeModem:
         self.imei = imei
         self.attached = True
         self.link_failures = 0
+        self.operator = "Fake Telecom"
+        self.signal = 28
+        self.registration = 1  # 1 home, 5 roaming, 0 not registered
         self.times_closed = 0
         self.sim_present = True
         self.stored: dict[int, str] = {}
@@ -45,8 +48,14 @@ class FakeModem:
             return [self.imei]
         if not self.sim_present:
             raise ATError(f"{text}: +CME ERROR: SIM not inserted")
-        if text in ("AT+CMGF=0", "AT+CNMI=2,1,0,0,0", "AT+CATR=3"):
+        if text in ("AT+CMGF=0", "AT+CNMI=2,1,0,0,0", "AT+CATR=3", "AT+COPS=3,0"):
             return []
+        if text == "AT+CSQ":
+            return [f"+CSQ: {self.signal},99"]
+        if text == "AT+CEREG?":
+            return [f"+CEREG: 0,{self.registration}"]
+        if text == "AT+COPS?":
+            return [f'+COPS: 0,0,"{self.operator}",7'] if self.registration in (1, 5) else ["+COPS: 0"]
         if text == 'AT+CPMS="SM","SM","SM"':
             return [f"+CPMS: {len(self.stored)},40,{len(self.stored)},40,{len(self.stored)},40"]
         if text == "AT+CICCID":

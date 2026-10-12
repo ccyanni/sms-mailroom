@@ -66,6 +66,15 @@ class StoredMessage:
     forwarding: bool = True
 
 
+@dataclass(frozen=True)
+class StoredSim:
+    iccid: str
+    label: str
+    number: str | None
+    forwarding: bool
+    last_message_at: datetime | None
+
+
 class Store:
     def __init__(self, path: Path | str) -> None:
         self._db = sqlite3.connect(path, check_same_thread=False)
@@ -86,6 +95,26 @@ class Store:
                 "ON CONFLICT (iccid) DO UPDATE SET number = COALESCE(excluded.number, number)",
                 (iccid, label, number),
             )
+
+    def list_sims(self) -> list[StoredSim]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT s.iccid, s.label, s.number, s.forwarding, "
+                "(SELECT MAX(sent_at) FROM messages m WHERE m.sim_iccid = s.iccid) "
+                "FROM sims s ORDER BY s.rowid"
+            ).fetchall()
+        return [
+            StoredSim(iccid, label, number, bool(forwarding), datetime.fromisoformat(last) if last else None)
+            for iccid, label, number, forwarding, last in rows
+        ]
+
+    def rename_sim(self, iccid: str, label: str) -> None:
+        with self._lock, self._db:
+            self._db.execute("UPDATE sims SET label = ? WHERE iccid = ?", (label, iccid))
+
+    def set_forwarding(self, iccid: str, enabled: bool) -> None:
+        with self._lock, self._db:
+            self._db.execute("UPDATE sims SET forwarding = ? WHERE iccid = ?", (enabled, iccid))
 
     def add_message(self, iccid: str, pdu: str, delivery: Delivery) -> bool:
         """Store a delivery durably, as a new Message or as a Part of one already begun.

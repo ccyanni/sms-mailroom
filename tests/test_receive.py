@@ -124,3 +124,23 @@ def test_message_text_cannot_inject_markup(modem, mailroom):
         wait_for(lambda: shown_messages(page))
 
         assert "<script>alert(1)</script>" not in page.get("/").text
+
+
+def test_modem_without_a_readable_sim_does_not_disturb_other_modems(mailroom):
+    working = FakeModem(iccid="89886000000000000001")
+    empty = FakeModem(iccid="89860000000000000002")
+    empty.sim_present = False
+    with mailroom(empty, working) as page:
+        working.deliver(build_pdu("111", "still works"))
+
+        assert wait_for(lambda: shown_messages(page)) == ["still works"]
+
+
+def test_modem_starts_receiving_once_its_sim_becomes_readable(modem, mailroom):
+    modem.sim_present = False
+    with mailroom() as page:
+        assert page.get("/").status_code == 200
+        modem.deliver(build_pdu("111", "after the SIM was seated"), announce=False)
+        modem.sim_present = True
+
+        assert wait_for(lambda: shown_messages(page)) == ["after the SIM was seated"]

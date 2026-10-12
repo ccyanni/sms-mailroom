@@ -4,13 +4,13 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every Modem attached at startup is found and addressed independently; two or more Modems work at the same time
-- [ ] Modems are told apart by IMEI, never by USB serial number, MAC address or device path
-- [ ] A new SMS is picked up within seconds of the Modem's new-message indication
-- [ ] SIM storage is also polled periodically, so a missed indication only delays a Message
-- [ ] Messages already on the SIM when Mailroom starts are collected
-- [ ] A Message is deleted from the SIM only after it is durably stored, and receiving the same PDU twice does not create a duplicate
-- [ ] A Modem whose SIM is missing or unreadable is reported as a state and does not crash Mailroom or disturb other Modems
-- [ ] Verified by hand against the attached Taiwan Mobile and China Mobile SIMs; the automated suite still runs without hardware
+- [x] Every Modem attached at startup is found and addressed independently; two or more Modems work at the same time
+- [x] Modems are told apart by IMEI, never by USB serial number, MAC address or device path
+- [x] A new SMS is picked up within seconds of the Modem's new-message indication
+- [x] SIM storage is also polled periodically, so a missed indication only delays a Message
+- [x] Messages already on the SIM when Mailroom starts are collected
+- [x] A Message is deleted from the SIM only after it is durably stored, and receiving the same PDU twice does not create a duplicate
+- [x] A Modem whose SIM is missing or unreadable is reported as a state and does not crash Mailroom or disturb other Modems
+- [x] Verified by hand against the attached Taiwan Mobile and China Mobile SIMs; the automated suite still runs without hardware

@@ -6,7 +6,7 @@ import threading
 
 from mailroom.receiver import Receiver
 from mailroom.store import Store
-from mailroom.transport import Transport
+from mailroom.transport import ModemLink, Transport
 
 
 class Service:
@@ -16,9 +16,11 @@ class Service:
         self._poll_interval = poll_interval
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
+        self._links: list[ModemLink] = []
 
     def start(self) -> None:
-        for link in self._transport.links():
+        self._links = self._transport.links()
+        for link in self._links:
             receiver = Receiver(link, self._store, self._poll_interval)
             thread = threading.Thread(target=receiver.run, args=(self._stop,), daemon=True)
             thread.start()
@@ -29,3 +31,6 @@ class Service:
         for thread in self._threads:
             thread.join()
         self._threads.clear()
+        for link in self._links:
+            link.close()
+        self._links.clear()

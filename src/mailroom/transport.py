@@ -11,7 +11,11 @@ from typing import Protocol
 
 
 class ATError(Exception):
-    """The Modem answered a command with ERROR, +CME ERROR or +CMS ERROR."""
+    """The Modem answered a command with ERROR, +CME ERROR or +CMS ERROR, or not at all."""
+
+
+class LinkLost(ATError):
+    """The Modem can no longer be reached, typically because it was unplugged."""
 
 
 class ModemLink(Protocol):
@@ -26,6 +30,9 @@ class ModemLink(Protocol):
 
     def wait_indication(self, timeout: float) -> str | None:
         """Return the next unsolicited line from the Modem, or None after `timeout` seconds."""
+        ...
+
+    def close(self) -> None:
         ...
 
 

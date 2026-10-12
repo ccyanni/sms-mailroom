@@ -66,7 +66,7 @@ Mailroom runs on the owner's always-on Mac mini. Each SIM sits in a SIMCom A7672
 
 **Modules**
 
-- **Modem transport**: finds Modems by USB vendor/product ID `1e0e:9011`, claims the AT interface (interface 4, vendor class 255) through libusb, and exchanges AT commands and unsolicited result codes over its bulk endpoints. Asserts DTR/RTS with a CDC `SET_CONTROL_LINE_STATE` control request after claiming. This is the only module that touches USB.
+- **Modem transport**: finds Modems by USB vendor/product ID `1e0e:9011`, claims both AT-capable interfaces (4, the AT port, and 5, the MODEM port; vendor class 255) through libusb, exchanges AT commands and unsolicited result codes on interface 4, and continuously drains interface 5. ADR 0001 explains why both must be read. This is the only module that touches USB.
 - **PDU codec**: decodes SMS-DELIVER PDUs into sender, network timestamp with timezone, text, and concatenation header (reference, total, sequence). Must handle GSM 7-bit and UCS2, and alphanumeric sender addresses. Pure functions, no I/O.
 - **Receiver**: per Modem, identifies the Modem (IMEI) and SIM (ICCID, number), reads PDUs in PDU mode, hands them to the store, then deletes them from the SIM. Reacts to new-message indications and also polls SIM storage periodically as a safety net. Drains SIM storage on startup and when a Modem appears.
 - **Store**: SIMs, Messages and Parts in SQLite. Assembles Parts into Messages by SIM, sender and concatenation reference, ordered by sequence number, never by arrival order. Tracks completeness and Forwarding state per Message.
@@ -150,4 +150,4 @@ Expected text: `(验证密码)504126，尊敬的用户，您的号码正在一�
 
 - The China Unicom SIM could not be read by a Modem or a phone; cause unknown (damaged card or suspended number). Not a blocker.
 - The USB hub is currently bus-powered. Connect its external power supply before relying on three Modems; under-powered Modems reset at random and the fault is hard to see from software.
-- Vendor manuals are in `docs/reference/` (git-ignored). The SMS application note and the USBNET chapter of the AT command manual are the relevant parts.
+- Vendor manuals are in `docs/reference/` (git-ignored). Only the *A76XX Series AT Command Manual* V1.09 matches this Modem; the SIM76XX V2.05 and SIM767XX V1.06 manuals are for a different chipset. Treat every manual as a lead and confirm on the hardware.

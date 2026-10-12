@@ -18,6 +18,8 @@ class FakeModem:
     def __init__(self, iccid: str = "89886000000000000001", number: str | None = "+886900000001") -> None:
         self.iccid = iccid
         self.number = number
+        self.imei = "860000000000001"
+        self.sim_present = True
         self.stored: dict[int, str] = {}
         self._indications: queue.Queue[str] = queue.Queue()
 
@@ -29,6 +31,14 @@ class FakeModem:
             self._indications.put(f'+CMTI: "SM",{index}')
 
     def command(self, text: str) -> list[str]:
+        if text == "AT+CGSN":
+            return [self.imei]
+        if not self.sim_present:
+            raise ATError(f"{text}: +CME ERROR: SIM not inserted")
+        if text in ("AT+CMGF=0", "AT+CNMI=2,1,0,0,0", "AT+CATR=3"):
+            return []
+        if text == 'AT+CPMS="SM","SM","SM"':
+            return [f"+CPMS: {len(self.stored)},40,{len(self.stored)},40,{len(self.stored)},40"]
         if text == "AT+CICCID":
             return [f"+ICCID: {self.iccid}"]
         if text == "AT+CNUM":
@@ -48,6 +58,9 @@ class FakeModem:
             return self._indications.get(timeout=timeout)
         except queue.Empty:
             return None
+
+    def close(self) -> None:
+        pass
 
 
 class FakeTransport:

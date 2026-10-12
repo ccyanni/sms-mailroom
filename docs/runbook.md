@@ -1,70 +1,74 @@
-# Mailroom runbook
+# Mailroom 操作手冊
 
-How to run, check and change the Mailroom installation on the Mac mini. Vocabulary follows `CONTEXT.md`.
+正體中文 | [English](./runbook.en.md)
 
-## What is installed
+說明如何在 Mac mini 上執行、檢查和調整 Mailroom。
 
-| Piece | Where |
+用詞對照（定義見 `CONTEXT.md`）：模組＝Modem、簡訊＝Message、轉發＝Forwarding、異常通知＝Alert。
+
+## 安裝了哪些東西
+
+| 項目 | 位置 |
 |---|---|
-| Mailroom service | launchd daemon `us.b612.mailroom` (`/Library/LaunchDaemons/us.b612.mailroom.plist`), running as the owner's account from this repository's `.venv` |
-| Web page | `https://mailroom.b612.us`, served through a Cloudflare Tunnel to `127.0.0.1:8000` and guarded by Cloudflare Access |
-| Tunnel | `cloudflared`, its own launchd daemon (`com.cloudflare.cloudflared`) |
-| Settings | `~/Library/Application Support/Mailroom/config.toml` (private; holds the Telegram bot token) |
-| Database | `~/Library/Application Support/Mailroom/mailroom.db` |
-| Logs | `~/Library/Logs/Mailroom/mailroom.log` (rotated at 5 MB, three old files kept) |
+| Mailroom 服務 | launchd 系統服務 `us.b612.mailroom`（`/Library/LaunchDaemons/us.b612.mailroom.plist`），以擁有者的帳號執行，使用這個專案的 `.venv` |
+| 網頁 | `https://mailroom.b612.us`，經由 Cloudflare Tunnel 連到 `127.0.0.1:8000`，由 Cloudflare Access 保護 |
+| Tunnel | `cloudflared`，另一個 launchd 系統服務（`com.cloudflare.cloudflared`） |
+| 設定檔 | `~/Library/Application Support/Mailroom/config.toml`（僅限本人讀取，內含 Telegram 機器人的 token） |
+| 資料庫 | `~/Library/Application Support/Mailroom/mailroom.db` |
+| 紀錄檔 | `~/Library/Logs/Mailroom/mailroom.log`（滿 5 MB 自動輪替，保留三份舊檔） |
 
-Both daemons start at boot, before anyone logs in, and restart if they stop.
+兩個服務都在開機時啟動，不需要先登入；停止時會自動重新啟動。
 
-## Everyday operations
+## 日常操作
 
-- **Is it working?** Open the web page. The top line lists the attached Modems and their state; each SIM shows its operator, signal and registration. Anything wrong is listed in a yellow box, and has also been sent to Telegram.
-- **Read the log:** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
-- **Restart** (after editing `config.toml` or updating the code): `sudo launchctl kickstart -k system/us.b612.mailroom`
-- **Stop and remove the service:** `sudo scripts/install-service.sh uninstall`
-- **Install or reinstall the service:** `sudo scripts/install-service.sh`. It refuses to install while `config.toml` has no `[access]` settings, because the tunnel would then expose the page.
-- **Update the code:** pull, run `uv sync`, run `uv run pytest`, then restart the service.
+- **確認是否正常運作：** 打開網頁。最上方一行列出目前接著的模組和各自的狀態；每張 SIM 會顯示業者、訊號和註冊狀態。有異常時會出現黃色方框，同一則內容也會發到 Telegram。
+- **查看紀錄：** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
+- **重新啟動**（修改 `config.toml` 或更新程式之後）：`sudo launchctl kickstart -k system/us.b612.mailroom`
+- **停止並移除服務：** `sudo scripts/install-service.sh uninstall`
+- **安裝或重新安裝服務：** `sudo scripts/install-service.sh`。`config.toml` 裡沒有 `[access]` 設定時，腳本會拒絕安裝，因為那樣 Tunnel 會把網頁直接暴露在外。
+- **更新程式：** 取得新版程式碼，執行 `uv sync`，執行 `uv run pytest`，然後重新啟動服務。
 
-The page at `http://127.0.0.1:8000` answers 403 on the Mac itself: every request must come through Cloudflare Access.
+在 Mac mini 上直接開 `http://127.0.0.1:8000` 會得到 403：所有請求都必須經過 Cloudflare Access。
 
-## Hardware
+## 硬體
 
-- **Antenna:** connect it to the socket marked `MANT`. The `GPS` and `BT` sockets are not used; an antenna on either gives no signal at all.
-- **Replugging a Modem:** after unplugging, wait 5 to 8 seconds before plugging it back in. Reconnected sooner, the board can power up without the module starting.
-- **Changing a SIM:** unplug the Modem, swap the SIM, wait, plug it back in. The SIM is registered by itself and keeps its label, Forwarding setting and Messages whichever Modem it is in.
-- **Adding a Modem:** just plug it in; Mailroom picks it up within a few seconds.
-- **USB hub:** power it from its own 5 V supply. A Modem that keeps dropping off the bus raises a "keeps disconnecting" Alert; check the hub, its power supply and the cable, or plug the Modem straight into the Mac.
+- **天線：** 接在標示 `MANT` 的天線座。`GPS` 和 `BT` 兩個座用不到；天線接到這兩個座會完全沒有訊號。
+- **重新插上模組：** 拔掉後等 5 到 8 秒再插回去。太快插回，板子可能有電但模組沒有啟動。
+- **更換 SIM 卡：** 先拔掉模組，換卡，等幾秒，再插回去。新的 SIM 會自動登記；不論插在哪一片模組上，SIM 的名稱、轉發設定和簡訊紀錄都跟著它走。
+- **增加模組：** 直接插上即可，Mailroom 會在幾秒內接手。
+- **USB 集線器：** 請接上獨立的 5 V 電源。模組如果一直從 USB 上掉線，會收到「keeps disconnecting」的異常通知；請檢查集線器、它的電源和線材，或把模組直接插在 Mac 上。
 
-## Settings
+## 設定檔
 
-`config.toml`, with every section Mailroom reads:
+`config.toml` 裡 Mailroom 會讀取的所有區段：
 
 ```toml
 [telegram]
-token = "<bot token from @BotFather>"
-chat_id = "<the owner's chat id>"
+token = "<向 @BotFather 申請的機器人 token>"
+chat_id = "<擁有者的聊天室 ID>"
 
 [access]
-team_domain = "<team>.cloudflareaccess.com"
-audience = "<the Access application's AUD tag>"
+team_domain = "<團隊名稱>.cloudflareaccess.com"
+audience = "<Access 應用程式的 AUD 標籤>"
 
 [alerts]
-after_minutes = 3   # optional; how long a problem must last before an Alert is sent
+after_minutes = 3   # 選填；問題持續多久之後才發異常通知
 ```
 
-Without `[telegram]`, Messages are stored but not forwarded. Without `[access]`, the page is locked.
+沒有 `[telegram]` 時，簡訊只存檔、不轉發。沒有 `[access]` 時，網頁會鎖住。
 
-## Setting up from scratch
+## 從零開始設定
 
-1. **Telegram bot.** In Telegram, send `/newbot` to `@BotFather` and note the token. Open the new bot, press Start and send it any message. The chat id is the `chat.id` in `https://api.telegram.org/bot<token>/getUpdates`.
-2. **Tunnel.** Install `cloudflared` (`brew install cloudflared`). In the Cloudflare Zero Trust dashboard create a tunnel, run the `cloudflared service install` command it shows, and add a public hostname that points to `http://localhost:8000`.
-3. **Access.** In Zero Trust, add a self-hosted Access application for the same hostname with an Allow policy for the owner's email. Note the team domain and the application's AUD tag. Check that the hostname now redirects to a login page when opened in a private window; if it does not, the page is not protected.
-4. **Config.** Write `config.toml` as above and `chmod 600` it.
-5. **macOS network service.** In System Settings → Network, disable "A76XX Series LTE Module", so the Mac never sends traffic over a SIM. Mailroom raises an Alert if it is ever enabled.
-6. **Service.** `uv sync`, then `sudo scripts/install-service.sh`.
-7. **Check.** Sign in at the public hostname, send an SMS to one of the SIMs, and see it arrive on the page and in Telegram.
+1. **Telegram 機器人。** 在 Telegram 對 `@BotFather` 傳送 `/newbot`，記下 token。打開新的機器人，按 Start，再隨便傳一則訊息。聊天室 ID 是 `https://api.telegram.org/bot<token>/getUpdates` 回應裡的 `chat.id`。
+2. **Tunnel。** 安裝 `cloudflared`（`brew install cloudflared`）。在 Cloudflare Zero Trust 後台建立一個 Tunnel，執行它顯示的 `cloudflared service install` 指令，再新增一個公開主機名稱，指向 `http://localhost:8000`。
+3. **Access。** 在 Zero Trust 新增一個自架（self-hosted）的 Access 應用程式，網域填同一個主機名稱，政策設為只允許擁有者的電子郵件。記下團隊網域和應用程式的 AUD 標籤。用無痕視窗打開該網址，確認會被導向登入頁；如果沒有，表示網頁沒有受到保護。
+4. **設定檔。** 依上一節的格式寫好 `config.toml`，並執行 `chmod 600`。
+5. **macOS 網路服務。** 在「系統設定 → 網路」停用「A76XX Series LTE Module」，確保 Mac 不會透過 SIM 卡上網。這個服務一旦被啟用，Mailroom 會發異常通知。
+6. **服務。** 執行 `uv sync`，再執行 `sudo scripts/install-service.sh`。
+7. **檢查。** 從公開網址登入，傳一則簡訊到其中一張 SIM，確認它出現在網頁和 Telegram。
 
-## Known behaviour
+## 已知的行為
 
-- A Modem occasionally reports a read error; Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub.
-- Roaming SIMs sometimes deliver an SMS minutes late, or twice. A repeat with the same sender, network time and text is stored once.
-- A Message deleted on the page is gone for good.
+- 模組偶爾會回報讀取錯誤，Mailroom 會重試並繼續運作。如果一連串讀取錯誤之後模組就消失，問題多半出在 USB 集線器。
+- 漫遊中的 SIM 有時會晚幾分鐘才收到簡訊，或同一則收到兩次。寄件者、電信網路標記的時間和內容都相同的重複簡訊，只會存一筆。
+- 在網頁上刪除的簡訊無法復原。

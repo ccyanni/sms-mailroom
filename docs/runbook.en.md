@@ -1,0 +1,72 @@
+# Mailroom runbook
+
+[正體中文](./runbook.md) | English
+
+How to run, check and change the Mailroom installation on the Mac mini. Vocabulary follows `CONTEXT.md`.
+
+## What is installed
+
+| Piece | Where |
+|---|---|
+| Mailroom service | launchd daemon `us.b612.mailroom` (`/Library/LaunchDaemons/us.b612.mailroom.plist`), running as the owner's account from this repository's `.venv` |
+| Web page | `https://mailroom.b612.us`, served through a Cloudflare Tunnel to `127.0.0.1:8000` and guarded by Cloudflare Access |
+| Tunnel | `cloudflared`, its own launchd daemon (`com.cloudflare.cloudflared`) |
+| Settings | `~/Library/Application Support/Mailroom/config.toml` (private; holds the Telegram bot token) |
+| Database | `~/Library/Application Support/Mailroom/mailroom.db` |
+| Logs | `~/Library/Logs/Mailroom/mailroom.log` (rotated at 5 MB, three old files kept) |
+
+Both daemons start at boot, before anyone logs in, and restart if they stop.
+
+## Everyday operations
+
+- **Is it working?** Open the web page. The top line lists the attached Modems and their state; each SIM shows its operator, signal and registration. Anything wrong is listed in a yellow box, and has also been sent to Telegram.
+- **Read the log:** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
+- **Restart** (after editing `config.toml` or updating the code): `sudo launchctl kickstart -k system/us.b612.mailroom`
+- **Stop and remove the service:** `sudo scripts/install-service.sh uninstall`
+- **Install or reinstall the service:** `sudo scripts/install-service.sh`. It refuses to install while `config.toml` has no `[access]` settings, because the tunnel would then expose the page.
+- **Update the code:** pull, run `uv sync`, run `uv run pytest`, then restart the service.
+
+The page at `http://127.0.0.1:8000` answers 403 on the Mac itself: every request must come through Cloudflare Access.
+
+## Hardware
+
+- **Antenna:** connect it to the socket marked `MANT`. The `GPS` and `BT` sockets are not used; an antenna on either gives no signal at all.
+- **Replugging a Modem:** after unplugging, wait 5 to 8 seconds before plugging it back in. Reconnected sooner, the board can power up without the module starting.
+- **Changing a SIM:** unplug the Modem, swap the SIM, wait, plug it back in. The SIM is registered by itself and keeps its label, Forwarding setting and Messages whichever Modem it is in.
+- **Adding a Modem:** just plug it in; Mailroom picks it up within a few seconds.
+- **USB hub:** power it from its own 5 V supply. A Modem that keeps dropping off the bus raises a "keeps disconnecting" Alert; check the hub, its power supply and the cable, or plug the Modem straight into the Mac.
+
+## Settings
+
+`config.toml`, with every section Mailroom reads:
+
+```toml
+[telegram]
+token = "<bot token from @BotFather>"
+chat_id = "<the owner's chat id>"
+
+[access]
+team_domain = "<team>.cloudflareaccess.com"
+audience = "<the Access application's AUD tag>"
+
+[alerts]
+after_minutes = 3   # optional; how long a problem must last before an Alert is sent
+```
+
+Without `[telegram]`, Messages are stored but not forwarded. Without `[access]`, the page is locked.
+
+## Setting up from scratch
+
+1. **Telegram bot.** In Telegram, send `/newbot` to `@BotFather` and note the token. Open the new bot, press Start and send it any message. The chat id is the `chat.id` in `https://api.telegram.org/bot<token>/getUpdates`.
+2. **Tunnel.** Install `cloudflared` (`brew install cloudflared`). In the Cloudflare Zero Trust dashboard create a tunnel, run the `cloudflared service install` command it shows, and add a public hostname that points to `http://localhost:8000`.
+3. **Access.** In Zero Trust, add a self-hosted Access application for the same hostname with an Allow policy for the owner's email. Note the team domain and the application's AUD tag. Check that the hostname now redirects to a login page when opened in a private window; if it does not, the page is not protected.
+4. **Config.** Write `config.toml` as above and `chmod 600` it.
+5. **macOS network service.** In System Settings → Network, disable "A76XX Series LTE Module", so the Mac never sends traffic over a SIM. Mailroom raises an Alert if it is ever enabled.
+6. **Service.** `uv sync`, then `sudo scripts/install-service.sh`.
+7. **Check.** Sign in at the public hostname, send an SMS to one of the SIMs, and see it arrive on the page and in Telegram.
+
+## Known behaviour
+
+- A Modem occasionally reports a read error; Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub.
+- Roaming SIMs sometimes deliver an SMS minutes late, or twice. A repeat with the same sender, network time and text is stored once.
+- A Message deleted on the page is gone for good.

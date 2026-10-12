@@ -104,12 +104,12 @@ def create_app(
         now = datetime.now(timezone.utc)
         search, archived, selecting = q.strip(), box == "archived", select == "1"
         rows = []
-        for m in store.list_messages(
-            incomplete_received_before=now - timedelta(seconds=part_timeout),
-            sim_iccid=sim or None,
-            search=search or None,
-            archived=archived,
-        ):
+        found = {
+            "incomplete_received_before": now - timedelta(seconds=part_timeout),
+            "sim_iccid": sim or None,
+            "search": search or None,
+        }
+        for m in store.list_messages(**found, archived=archived):
             code = _CODE.search(m.text)
             rows.append(
                 {
@@ -124,7 +124,7 @@ def create_app(
                     "code": code.group() if code else None,
                 }
             )
-        inbox_count, archived_count = store.count_messages()
+        inbox_count, archived_count = store.count_messages(**found)
 
         def link(**changes: str) -> str:
             """This list with something changed, keeping the rest of the filter."""

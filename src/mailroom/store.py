@@ -166,26 +166,28 @@ class Store:
         A Message still missing Parts is left out until it has waited since
         `incomplete_received_before`, so that Parts in transit are not shown as a broken Message.
         """
-        cutoff = (incomplete_received_before or datetime.max.replace(tzinfo=timezone.utc)).isoformat()
-        where, values = ["(m.complete OR m.received_at <= ?)", "m.archived = ?"], [cutoff, archived]
-        if sim_iccid:
-            where.append("m.sim_iccid = ?")
-            values.append(sim_iccid)
-        if search:
-            pattern = "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-            where.append("(m.text LIKE ? ESCAPE '\\' OR m.sender LIKE ? ESCAPE '\\')")
-            values += [pattern, pattern]
+        where, values = _filter(incomplete_received_before, sim_iccid, search)
         with self._lock:
             rows = self._db.execute(
-                _SELECT_MESSAGE + "WHERE " + " AND ".join(where) + " ORDER BY m.sent_at DESC, m.id DESC",
-                values,
+                _SELECT_MESSAGE + f"WHERE {where} AND m.archived = ? ORDER BY m.sent_at DESC, m.id DESC",
+                [*values, archived],
             ).fetchall()
         return [_stored(row) for row in rows]
 
-    def count_messages(self) -> tuple[int, int]:
-        """How many Messages are in the inbox and in the Archive."""
+    def count_messages(
+        self,
+        incomplete_received_before: datetime | None = None,
+        sim_iccid: str | None = None,
+        search: str | None = None,
+    ) -> tuple[int, int]:
+        """How many Messages the same filter finds in the inbox and in the Archive."""
+        where, values = _filter(incomplete_received_before, sim_iccid, search)
         with self._lock:
-            counts = dict(self._db.execute("SELECT archived, COUNT(*) FROM messages GROUP BY archived"))
+            counts = dict(
+                self._db.execute(
+                    f"SELECT m.archived, COUNT(*) FROM messages m WHERE {where} GROUP BY m.archived", values
+                )
+            )
         return counts.get(0, 0), counts.get(1, 0)
 
     def set_archived(self, message_id: int, archived: bool) -> None:
@@ -355,6 +357,22 @@ class Store:
             if version < 4:
                 self._db.execute("ALTER TABLE messages ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
         self._db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+
+
+def _filter(
+    incomplete_received_before: datetime | None, sim_iccid: str | None, search: str | None
+) -> tuple[str, list]:
+    """The WHERE clause shared by listing and counting, so the two can never disagree."""
+    cutoff = (incomplete_received_before or datetime.max.replace(tzinfo=timezone.utc)).isoformat()
+    where, values = ["(m.complete OR m.received_at <= ?)"], [cutoff]
+    if sim_iccid:
+        where.append("m.sim_iccid = ?")
+        values.append(sim_iccid)
+    if search:
+        pattern = "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        where.append("(m.text LIKE ? ESCAPE '\\' OR m.sender LIKE ? ESCAPE '\\')")
+        values += [pattern, pattern]
+    return " AND ".join(where), values
 
 
 _SELECT_MESSAGE = (

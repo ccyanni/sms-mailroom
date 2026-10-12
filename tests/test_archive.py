@@ -93,6 +93,25 @@ def test_page_shows_how_many_messages_each_box_holds(page):
     assert "Archived 1" in html
 
 
+def test_box_counts_follow_the_sim_filter_and_the_search(page):
+    archive(page, "spam one")
+
+    china, taiwan = page.get("/", params={"sim": CHINA}).text, page.get("/", params={"sim": TAIWAN}).text
+    assert "Inbox 1" in china and "Archived 1" in china
+    assert "Inbox 2" in taiwan and "Archived 0" in taiwan
+    searched = page.get("/", params={"q": "spam two"}).text
+    assert "Inbox 1" in searched and "Archived 0" in searched
+
+
+def test_box_counts_match_what_each_box_lists(page):
+    archive(page, "spam one")
+
+    for params in ({}, {"sim": CHINA}, {"q": "spam"}, {"sim": TAIWAN, "q": "bill"}):
+        html = page.get("/", params=params).text
+        inbox, archived = re.search(r"Inbox (\d+)", html).group(1), re.search(r"Archived (\d+)", html).group(1)
+        assert (int(inbox), int(archived)) == (len(shown(page, **params)), len(shown(page, box="archived", **params)))
+
+
 def test_search_and_sim_filter_work_in_the_archive(page):
     archive(page, "electricity bill")
     archive(page, "spam one")

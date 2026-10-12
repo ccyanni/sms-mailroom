@@ -5,7 +5,7 @@ description = "Receive SMS on several SIMs through USB modems; read and forward 
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Yanni Chang" }]
+authors = [{ name = "Yu-Wei (Yanni) Chang" }]
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

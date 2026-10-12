@@ -43,8 +43,15 @@ class UsbModemLink:
         self._closing = False
         self._out, primary_in = self._open(AT_INTERFACE)
         _, secondary_in = self._open(SECONDARY_AT_INTERFACE)
-        threading.Thread(target=self._pump, args=(primary_in, self._incoming.put), daemon=True).start()
-        threading.Thread(target=self._pump, args=(secondary_in, _discard), daemon=True).start()
+        # Named in the log, so a read error can be traced to one Modem and one interface.
+        where = f"{device.bus}:{device.address}"
+        for endpoint, deliver, number in (
+            (primary_in, self._incoming.put, AT_INTERFACE),
+            (secondary_in, _discard, SECONDARY_AT_INTERFACE),
+        ):
+            threading.Thread(
+                target=self._pump, args=(endpoint, deliver, f"{where} interface {number}"), daemon=True
+            ).start()
         self._channel = ATChannel(self._read, self._write)
         try:
             while self._channel.wait_indication(0.2) is not None:
@@ -81,7 +88,7 @@ class UsbModemLink:
         except usb.core.USBError:
             pass
 
-    def _pump(self, endpoint, deliver) -> None:
+    def _pump(self, endpoint, deliver, name: str) -> None:
         """Read from one of the Modem's endpoints for as long as the link is open.
 
         One blocking read with no timeout, instead of many short ones: on macOS
@@ -101,7 +108,7 @@ class UsbModemLink:
                 if exc.errno == errno.ENODEV or failures >= _MAX_CONSECUTIVE_READ_FAILURES:
                     self._incoming.put(LinkLost(str(exc)))
                     return
-                log.warning("read from Modem failed (%s), retrying", exc)
+                log.warning("read from Modem at %s failed (%s), retrying", name, exc)
                 try:
                     endpoint.clear_halt()
                 except usb.core.USBError:

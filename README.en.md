@@ -118,6 +118,7 @@ The program is a single Python process: one thread per modem receives messages, 
 - A roaming SIM sometimes receives an SMS minutes late; that is the network's doing.
 - A modem occasionally reports a read error, which is retried automatically; the cause is not yet known.
 - Messages are stored unencrypted in the local SQLite database.
+- With FileVault on, the Mac waits for a password at the machine after a reboot or a power cut, and receives nothing until someone types it. See the runbook.
 
 ## To do
 

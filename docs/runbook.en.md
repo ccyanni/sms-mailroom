@@ -18,6 +18,8 @@ How to run, check and change the SMS Mailroom installation on the Mac mini. Voca
 
 Both daemons start at boot, before anyone logs in, and restart if they stop.
 
+**If FileVault is on**, the Mac stops at an unlock screen after a reboot or a power cut and waits for someone to type the password at the machine. Until then macOS has not started: neither daemon runs and the Mac cannot be reached remotely. `fdesetup status` shows whether it is on. For the machine to come back entirely by itself after a power cut, FileVault has to be off, at the cost of an unencrypted disk; to restart it yourself once, `sudo fdesetup authrestart` passes the unlock screen for that one restart.
+
 ## Everyday operations
 
 - **Is it working?** Open the web page and go to Status. Each SIM has a card with its operator, signal and registration; below are the attached Modems and the state of the system itself (service, Telegram, macOS network service, USB connection, page protection). Anything wrong is listed in a yellow box at the top, marks the Status tab with a red dot, and has also been sent to Telegram.

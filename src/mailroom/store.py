@@ -10,12 +10,13 @@ from pathlib import Path
 
 from mailroom.pdu import Delivery, PduError, decode_deliver
 
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sims (
     iccid  TEXT PRIMARY KEY,
-    label  TEXT NOT NULL,
-    number TEXT
+    label      TEXT NOT NULL,
+    number     TEXT,
+    forwarding INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE messages (
     id           INTEGER PRIMARY KEY,
@@ -26,7 +27,8 @@ CREATE TABLE messages (
     received_at  TEXT NOT NULL,
     complete     INTEGER NOT NULL,
     concat_ref   INTEGER,
-    concat_total INTEGER
+    concat_total INTEGER,
+    forward_state TEXT NOT NULL DEFAULT 'pending'
 );
 CREATE TABLE parts (
     id          INTEGER PRIMARY KEY,
@@ -45,6 +47,12 @@ CREATE TABLE parts (
 _SAME_MESSAGE_WINDOW = timedelta(days=1)
 MISSING_PART = "[…]"
 
+# Forwarding states of a Message.
+PENDING = "pending"  # not yet delivered to Telegram
+SENT_INCOMPLETE = "sent_incomplete"  # delivered while Parts were missing; owed the full text
+SENT = "sent"
+SKIPPED = "skipped"  # never to be forwarded
+
 
 @dataclass(frozen=True)
 class StoredMessage:
@@ -54,6 +62,8 @@ class StoredMessage:
     text: str
     sent_at: datetime
     complete: bool
+    forward_state: str = PENDING
+    forwarding: bool = True
 
 
 class Store:
@@ -94,16 +104,31 @@ class Store:
         cutoff = (incomplete_received_before or datetime.max.replace(tzinfo=timezone.utc)).isoformat()
         with self._lock:
             rows = self._db.execute(
-                "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete "
-                "FROM messages m JOIN sims s ON s.iccid = m.sim_iccid "
-                "WHERE m.complete OR m.received_at <= ? "
+                _SELECT_MESSAGE + "WHERE m.complete OR m.received_at <= ? "
                 "ORDER BY m.sent_at DESC, m.id DESC",
                 (cutoff,),
             ).fetchall()
-        return [
-            StoredMessage(id_, label, sender, text, datetime.fromisoformat(sent_at), bool(complete))
-            for id_, label, sender, text, sent_at, complete in rows
-        ]
+        return [_stored(row) for row in rows]
+
+    def awaiting_forwarding(self, incomplete_received_before: datetime) -> list[StoredMessage]:
+        """Messages owed to Telegram, oldest first.
+
+        That is Messages never delivered that are complete or have waited long
+        enough for their Parts, and Messages delivered incomplete that have since
+        been completed.
+        """
+        with self._lock:
+            rows = self._db.execute(
+                _SELECT_MESSAGE
+                + "WHERE (m.forward_state = ? AND (m.complete OR m.received_at <= ?)) "
+                "OR (m.forward_state = ? AND m.complete) ORDER BY m.id",
+                (PENDING, incomplete_received_before.isoformat(), SENT_INCOMPLETE),
+            ).fetchall()
+        return [_stored(row) for row in rows]
+
+    def set_forward_state(self, message_id: int, state: str) -> None:
+        with self._lock, self._db:
+            self._db.execute("UPDATE messages SET forward_state = ? WHERE id = ?", (state, message_id))
 
     def _add(self, iccid: str, pdu: str, delivery: Delivery, received_at: datetime) -> bool:
         pdu = pdu.upper()
@@ -173,20 +198,43 @@ class Store:
         if version == _SCHEMA_VERSION:
             return
         tables = {name for (name,) in self._db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        earlier: list[tuple[str, str, str]] = []
-        if "messages" in tables:
-            # Version 1 kept one row per PDU; replay them so split Messages are joined.
-            earlier = self._db.execute(
-                "SELECT sim_iccid, pdu, received_at FROM messages ORDER BY id"
-            ).fetchall()
-            self._db.execute("DROP TABLE messages")
-        self._db.executescript(_SCHEMA)
-        for iccid, pdu, received_at in earlier:
-            try:
-                self._add(iccid, pdu, decode_deliver(pdu), datetime.fromisoformat(received_at))
-            except PduError:
-                continue
+        if "messages" not in tables:
+            self._db.executescript(_SCHEMA)
+        else:
+            if version < 2:
+                # Version 1 kept one row per PDU; replay them so split Messages are joined.
+                earlier = self._db.execute(
+                    "SELECT sim_iccid, pdu, received_at FROM messages ORDER BY id"
+                ).fetchall()
+                self._db.execute("DROP TABLE messages")
+                self._db.execute("ALTER TABLE sims ADD COLUMN forwarding INTEGER NOT NULL DEFAULT 1")
+                self._db.executescript(_SCHEMA)
+                for iccid, pdu, received_at in earlier:
+                    try:
+                        self._add(iccid, pdu, decode_deliver(pdu), datetime.fromisoformat(received_at))
+                    except PduError:
+                        continue
+            else:
+                self._db.execute("ALTER TABLE sims ADD COLUMN forwarding INTEGER NOT NULL DEFAULT 1")
+                self._db.execute(
+                    "ALTER TABLE messages ADD COLUMN forward_state TEXT NOT NULL DEFAULT 'pending'"
+                )
+            # Messages from before Forwarding existed are history, not news.
+            self._db.execute("UPDATE messages SET forward_state = ?", (SKIPPED,))
         self._db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+
+
+_SELECT_MESSAGE = (
+    "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete, m.forward_state, s.forwarding "
+    "FROM messages m JOIN sims s ON s.iccid = m.sim_iccid "
+)
+
+
+def _stored(row: tuple) -> StoredMessage:
+    id_, label, sender, text, sent_at, complete, forward_state, forwarding = row
+    return StoredMessage(
+        id_, label, sender, text, datetime.fromisoformat(sent_at), bool(complete), forward_state, bool(forwarding)
+    )
 
 
 def _utc(moment: datetime) -> str:

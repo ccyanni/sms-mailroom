@@ -4,12 +4,12 @@
 
 **Blocked by:** 01, 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A stored Message is sent to the configured Telegram chat with SIM label, sender, Taipei time and full text
-- [ ] A failed send is retried until it succeeds, across restarts of Mailroom
-- [ ] A Message is never forwarded twice
-- [ ] The web page shows whether each Message has been forwarded
-- [ ] An incomplete Message is forwarded marked as incomplete after the timeout, and the owner is shown the full text when it completes
-- [ ] The bot token and chat ID are read from configuration outside the repository and never logged
-- [ ] Tests replace only the outbound Telegram HTTP call with a recording fake
+- [x] A stored Message is sent to the configured Telegram chat with SIM label, sender, Taipei time and full text
+- [x] A failed send is retried until it succeeds, across restarts of Mailroom
+- [x] A Message is never forwarded twice
+- [x] The web page shows whether each Message has been forwarded
+- [x] An incomplete Message is forwarded marked as incomplete after the timeout, and the owner is shown the full text when it completes
+- [x] The bot token and chat ID are read from configuration outside the repository and never logged
+- [x] Tests replace only the outbound Telegram HTTP call with a recording fake

@@ -25,7 +25,7 @@
   <ul>
     {% for m in messages %}
     <li class="message">
-      <div class="meta"><span class="sim">{{ m.sim }}</span> · <span class="sender">{{ m.sender }}</span> · <time>{{ m.time }}</time>{% if not m.complete %} · <span class="incomplete">incomplete</span>{% endif %}</div>
+      <div class="meta"><span class="sim">{{ m.sim }}</span> · <span class="sender">{{ m.sender }}</span> · <time>{{ m.time }}</time>{% if not m.complete %} · <span class="incomplete">incomplete</span>{% endif %} · <span class="forwarding">{{ m.forwarding }}</span></div>
       <p class="text">{{ m.text }}</p>
     </li>
     {% endfor %}

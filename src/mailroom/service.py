@@ -6,6 +6,7 @@ import logging
 import threading
 from dataclasses import dataclass
 
+from mailroom.forwarder import Forwarder
 from mailroom.receiver import Receiver
 from mailroom.store import Store
 from mailroom.transport import ATError, ModemLink, Transport
@@ -35,28 +36,34 @@ class Service:
         self,
         transport: Transport,
         store: Store,
+        forwarder: Forwarder,
         poll_interval: float = 30.0,
         scan_interval: float = 2.0,
     ) -> None:
         self._transport = transport
         self._store = store
+        self._forwarder = forwarder
         self._poll_interval = poll_interval
         self._scan_interval = scan_interval
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._running: dict[str, _Running] = {}
         self._unopenable: set[str] = set()
-        self._supervisor: threading.Thread | None = None
+        self._threads: list[threading.Thread] = []
 
     def start(self) -> None:
         self._scan()
-        self._supervisor = threading.Thread(target=self._supervise, daemon=True)
-        self._supervisor.start()
+        self._threads = [
+            threading.Thread(target=self._supervise, daemon=True),
+            threading.Thread(target=self._forwarder.run, args=(self._stop,), daemon=True),
+        ]
+        for thread in self._threads:
+            thread.start()
 
     def stop(self) -> None:
         self._stop.set()
-        if self._supervisor is not None:
-            self._supervisor.join()
+        for thread in self._threads:
+            thread.join()
         for key in list(self._running):
             self._retire(key)
 

@@ -1,6 +1,6 @@
 # 01: Walking skeleton: a Message from a fake Modem appears on the web page
 
-**What to build:** The thinnest complete path through Mailroom. A scripted fake Modem delivers one single-Part SMS; Mailroom decodes it, stores it as a Message belonging to a SIM, and the owner sees it on a web page listing Messages newest first. This ticket also sets up the Python project (`uv`, package `mailroom`), the Modem transport seam that every later ticket tests through, the PDU codec, the SQLite store and the test harness. See `../spec.md` for the module boundaries and testing decisions.
+**What to build:** The thinnest complete path through SMS Mailroom. A scripted fake Modem delivers one single-Part SMS; SMS Mailroom decodes it, stores it as a Message belonging to a SIM, and the owner sees it on a web page listing Messages newest first. This ticket also sets up the Python project (`uv`, package `mailroom`), the Modem transport seam that every later ticket tests through, the PDU codec, the SQLite store and the test harness. See `../spec.md` for the module boundaries and testing decisions.
 
 **Blocked by:** None (can start immediately)
 

@@ -72,13 +72,13 @@ def test_sim_off_the_network_raises_one_alert_and_another_when_it_recovers(modem
         wait_for(lambda: alerts(telegram))
         settle()
         assert alerts(telegram) == [
-            "⚠️ Mailroom alert\nSIM +886900000001 is not receiving: it is not registered on a mobile network."
+            "⚠️ SMS Mailroom alert\nSIM +886900000001 is not receiving: it is not registered on a mobile network."
         ]
         assert "is not receiving" in page.get("/status").text
 
         modem.registration = 1
         wait_for(lambda: len(alerts(telegram)) == 2)
-        assert alerts(telegram)[1].startswith("✅ Mailroom: resolved\nSIM +886900000001 is not receiving")
+        assert alerts(telegram)[1].startswith("✅ SMS Mailroom: resolved\nSIM +886900000001 is not receiving")
         assert "is not receiving" not in page.get("/status").text
 
 
@@ -102,12 +102,12 @@ def test_modem_that_disappears_raises_an_alert_and_another_when_it_returns(trans
         transport.unplug(modem)
         wait_for(lambda: alerts(telegram))
         assert alerts(telegram) == [
-            "⚠️ Mailroom alert\nSIM +886900000001 is not receiving: its Modem is no longer attached."
+            "⚠️ SMS Mailroom alert\nSIM +886900000001 is not receiving: its Modem is no longer attached."
         ]
 
         transport.plug(modem)
         wait_for(lambda: len(alerts(telegram)) == 2)
-        assert alerts(telegram)[1].startswith("✅ Mailroom: resolved")
+        assert alerts(telegram)[1].startswith("✅ SMS Mailroom: resolved")
 
 
 def test_modem_that_drops_off_for_a_moment_stays_quiet(transport, modem, telegram, mailroom):
@@ -175,7 +175,7 @@ def test_telegram_outage_is_shown_on_the_page_and_reported_once_it_is_over(modem
         assert "Telegram has not been reachable" not in page.get("/status").text
     (alert,) = alerts(telegram)
     assert re.fullmatch(
-        r"⚠️ Mailroom alert\nTelegram could not be reached from \d\d:\d\d to \d\d:\d\d\. "
+        r"⚠️ SMS Mailroom alert\nTelegram could not be reached from \d\d:\d\d to \d\d:\d\d\. "
         r"Messages received meanwhile were forwarded late\.",
         alert,
     )
@@ -256,14 +256,14 @@ def test_owner_is_told_once_when_the_service_restarts(modem, telegram, announcin
         wait_for(lambda: alerts(telegram))
         settle(1.0)
 
-    assert alerts(telegram) == ["🟢 Mailroom started (the service restarted)\n1 Modems attached, 1 of 1 SIMs receiving"]
+    assert alerts(telegram) == ["🟢 SMS Mailroom started (the service restarted)\n1 Modems attached, 1 of 1 SIMs receiving"]
 
 
 def test_start_notice_says_when_the_mac_has_just_booted(modem, telegram, announcing):
     with announcing("boot"):
         wait_for(lambda: alerts(telegram))
 
-    assert alerts(telegram)[0].startswith("🟢 Mailroom started (the Mac has just booted)\n")
+    assert alerts(telegram)[0].startswith("🟢 SMS Mailroom started (the Mac has just booted)\n")
 
 
 def test_start_notice_counts_sims_that_are_not_receiving(transport, modem, telegram, announcing):
@@ -275,14 +275,14 @@ def test_start_notice_counts_sims_that_are_not_receiving(transport, modem, teleg
     with announcing():
         wait_for(lambda: alerts(telegram))
 
-    assert alerts(telegram) == ["🟢 Mailroom started (the service restarted)\n0 Modems attached, 0 of 1 SIMs receiving"]
+    assert alerts(telegram) == ["🟢 SMS Mailroom started (the service restarted)\n0 Modems attached, 0 of 1 SIMs receiving"]
 
 
 def test_start_notice_uses_the_configured_language(modem, telegram, announcing):
     with announcing("boot", language="zh"):
         wait_for(lambda: alerts(telegram))
 
-    assert alerts(telegram) == ["🟢 Mailroom 已啟動（電腦剛重新開機）\n接上 1 片模組，1 張 SIM 中有 1 張正常收訊"]
+    assert alerts(telegram) == ["🟢 SMS Mailroom 已啟動（電腦剛重新開機）\n接上 1 片模組，1 張 SIM 中有 1 張正常收訊"]
 
 
 def test_start_notice_is_delivered_once_telegram_becomes_reachable(modem, telegram, announcing):

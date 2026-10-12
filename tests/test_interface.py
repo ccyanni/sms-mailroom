@@ -145,7 +145,7 @@ def test_page_is_in_traditional_chinese_unless_told_otherwise(modem, mailroom, m
 
     assert '<html lang="zh-Hant">' in html
     assert "收件匣" in html and "還沒有簡訊。" in html
-    assert "系統" in status and "Mailroom 服務" in status
+    assert "系統" in status and "SMS Mailroom 服務" in status
 
 
 def test_owner_can_switch_to_english_and_the_choice_is_remembered(modem, mailroom, monkeypatch):
@@ -173,10 +173,10 @@ def test_telegram_texts_use_the_configured_language(modem, telegram, mailroom):
         wait_for(lambda: "(receiving)" in page.get("/status").text or "收訊中" in page.get("/status").text)
         modem.deliver(build_pdu("111", "前半，", part=(7, 2, 1)))
         modem.registration = 0
-        wait_for(lambda: any(text.startswith("⚠️ Mailroom 異常通知") for text in telegram.texts))
+        wait_for(lambda: any(text.startswith("⚠️ SMS Mailroom 異常通知") for text in telegram.texts))
 
-    alert = next(text for text in telegram.texts if text.startswith("⚠️ Mailroom 異常通知"))
-    assert alert == "⚠️ Mailroom 異常通知\nSIM「+886900000001」未在收訊：沒有註冊到電信網路。"
+    alert = next(text for text in telegram.texts if text.startswith("⚠️ SMS Mailroom 異常通知"))
+    assert alert == "⚠️ SMS Mailroom 異常通知\nSIM「+886900000001」未在收訊：沒有註冊到電信網路。"
 
 
 def test_alerts_on_the_page_follow_the_page_language(modem, mailroom):
@@ -238,13 +238,13 @@ def test_system_card_reports_a_healthy_installation(modem, telegram, mailroom):
         wait_for(lambda: system(page)["macOS network service"][0] == "Disabled")
 
         assert system(page) == {
-            "Mailroom service": ("Running", "ok"),
+            "SMS Mailroom service": ("Running", "ok"),
             "Telegram forwarding": ("Working", "ok"),
             "macOS network service": ("Disabled", "ok"),
             "USB connection": ("Stable", "ok"),
             "Page protection": ("Off", "warn"),  # this test page is open; see the next test
         }
-        assert note(page, "Mailroom service") == "Up for 0 min"
+        assert note(page, "SMS Mailroom service") == "Up for 0 min"
         assert note(page, "Telegram forwarding") == "Last forwarded just now"
     assert access.allows(None) is False
 

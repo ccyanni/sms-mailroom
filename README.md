@@ -1,8 +1,8 @@
-# Mailroom
+# SMS Mailroom
 
 正體中文 | [English](./README.en.md)
 
-Mailroom 讓一台不關機的 Mac 替你收簡訊。把 SIM 卡插在 USB 4G 模組上，簡訊進來後幾秒內就會轉發到你的 Telegram，也可以從任何地方打開網頁查看和整理。
+SMS Mailroom 讓一台不關機的 Mac 替你收簡訊。把 SIM 卡插在 USB 4G 模組上，簡訊進來後幾秒內就會轉發到你的 Telegram，也可以從任何地方打開網頁查看和整理。
 
 它是為了解決一個具體的麻煩：幾張只用來收驗證碼的 SIM 卡，原本各自插在一支留在家裡的手機上，人不在家就收不到，而驗證碼幾分鐘就過期。
 
@@ -48,13 +48,13 @@ Mailroom 讓一台不關機的 Mac 替你收簡訊。把 SIM 卡插在 USB 4G �
 | Cloudflare 帳號 | 需要一個託管在 Cloudflare 的網域，用 Tunnel 和 Access 提供遠端存取 |
 | 軟體 | [uv](https://docs.astral.sh/uv/)（會自動安裝所需的 Python） |
 
-Mailroom 只收簡訊。它不發簡訊、不接電話，也不會使用 SIM 卡的行動數據。
+SMS Mailroom 只收簡訊。它不發簡訊、不接電話，也不會使用 SIM 卡的行動數據。
 
 ## 注意：行動數據與漫遊費用
 
-Mailroom 只收簡訊，本身不會使用行動數據。但模組連上電信網路後，會自動建立一條數據連線，而且**無法從 Mailroom 這一端關掉**：用 AT 指令切斷後，模組大約 20 秒內就會自己重新連上。
+SMS Mailroom 只收簡訊，本身不會使用行動數據。但模組連上電信網路後，會自動建立一條數據連線，而且**無法從 SMS Mailroom 這一端關掉**：用 AT 指令切斷後，模組大約 20 秒內就會自己重新連上。
 
-Mailroom 做了兩層防護，讓這條連線上不會有流量：
+SMS Mailroom 做了兩層防護，讓這條連線上不會有流量：
 
 - 讓模組的 USB 網路共享維持關閉，電腦無法透過模組上網。
 - 檢查 macOS 的網路服務「A76XX Series LTE Module」是否停用，一旦被啟用就發出異常通知。這個服務需要你在「系統設定 → 網路」手動停用一次。
@@ -111,7 +111,7 @@ keep = 14           # 選填；保留幾天的備份
 
 ## 運作方式
 
-macOS 沒有這款模組的驅動程式，所以不會出現序列埠。Mailroom 改用 libusb 直接讀寫模組的 AT 介面，不需要安裝驅動程式，也不需要 root 權限。細節和踩過的坑記錄在 [ADR 0001](./docs/adr/0001-talk-to-modems-over-libusb.md)，其中最重要的一條是：模組有兩個 AT 介面，兩個都必須持續讀取，否則純英數字的簡訊會無聲無息地遺失。
+macOS 沒有這款模組的驅動程式，所以不會出現序列埠。SMS Mailroom 改用 libusb 直接讀寫模組的 AT 介面，不需要安裝驅動程式，也不需要 root 權限。細節和踩過的坑記錄在 [ADR 0001](./docs/adr/0001-talk-to-modems-over-libusb.md)，其中最重要的一條是：模組有兩個 AT 介面，兩個都必須持續讀取，否則純英數字的簡訊會無聲無息地遺失。
 
 程式本身是一個 Python 行程：每片模組一條執行緒負責收簡訊，資料存在 SQLite，網頁用 FastAPI 和伺服器端產生的 HTML，沒有前端建置步驟。
 

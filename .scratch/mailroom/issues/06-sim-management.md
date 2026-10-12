@@ -1,6 +1,6 @@
 # 06: Manage and monitor SIMs from the web page
 
-**What to build:** The owner sees every SIM Mailroom knows and can manage it. A SIM seen for the first time is registered automatically, labelled with its phone number (or the last four digits of its ICCID when the number is unreadable), with Forwarding on. The owner can rename a SIM and switch its Forwarding on or off. Each SIM shows its number, operator, signal strength, registration state including roaming, and the time of its last Message. A SIM keeps its label, settings and Messages when it moves to a different Modem.
+**What to build:** The owner sees every SIM SMS Mailroom knows and can manage it. A SIM seen for the first time is registered automatically, labelled with its phone number (or the last four digits of its ICCID when the number is unreadable), with Forwarding on. The owner can rename a SIM and switch its Forwarding on or off. Each SIM shows its number, operator, signal strength, registration state including roaming, and the time of its last Message. A SIM keeps its label, settings and Messages when it moves to a different Modem.
 
 **Blocked by:** 01
 

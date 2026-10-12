@@ -1,8 +1,8 @@
-# Mailroom
+# SMS Mailroom
 
 [正體中文](./README.md) | English
 
-Mailroom lets an always-on Mac receive your SMS for you. Put each SIM in a USB 4G modem; within seconds of arriving, a message is forwarded to your Telegram, and you can read and tidy your messages from anywhere through a web page.
+SMS Mailroom lets an always-on Mac receive your SMS for you. Put each SIM in a USB 4G modem; within seconds of arriving, a message is forwarded to your Telegram, and you can read and tidy your messages from anywhere through a web page.
 
 It exists to fix one specific annoyance: a handful of SIMs kept only for verification codes, each sitting in a phone left at home, unreachable when you are out, with codes that expire in minutes.
 
@@ -26,7 +26,7 @@ The numbers, modems and messages shown are sample data.
 
 ## Features
 
-- **Several SIMs at once**: one USB modem per SIM, and modems can be plugged in or pulled out while Mailroom runs.
+- **Several SIMs at once**: one USB modem per SIM, and modems can be plugged in or pulled out while SMS Mailroom runs.
 - **Forwarding to Telegram**: every message is forwarded as it arrives, retried until Telegram accepts it, and never sent twice. Forwarding can be switched off per SIM.
 - **Web interface**, built for a phone: search, filter by SIM, archive what is worth keeping, delete junk several at a time. A verification code in a message is shown on its own with a copy button.
 - **Status at a glance**: each SIM's operator, roaming state and signal, and the state of the system itself.
@@ -48,13 +48,13 @@ The numbers, modems and messages shown are sample data.
 | Cloudflare account | With a domain on Cloudflare, for remote access through a Tunnel and Access |
 | Software | [uv](https://docs.astral.sh/uv/), which installs the right Python for you |
 
-Mailroom only receives SMS. It does not send messages, take calls, or use a SIM's mobile data.
+SMS Mailroom only receives SMS. It does not send messages, take calls, or use a SIM's mobile data.
 
 ## Warning: mobile data and roaming charges
 
-Mailroom only receives SMS and never uses mobile data itself. But once a modem is on the network it sets up a data connection on its own, and **Mailroom cannot switch that off**: torn down with an AT command, the modem brings it back within about 20 seconds.
+SMS Mailroom only receives SMS and never uses mobile data itself. But once a modem is on the network it sets up a data connection on its own, and **SMS Mailroom cannot switch that off**: torn down with an AT command, the modem brings it back within about 20 seconds.
 
-Mailroom keeps traffic off that connection in two ways:
+SMS Mailroom keeps traffic off that connection in two ways:
 
 - It keeps the modem's USB network sharing disabled, so the computer cannot reach the internet through the modem.
 - It checks that the macOS network service "A76XX Series LTE Module" is disabled, and raises an alert if it is ever enabled. You disable it once by hand in System Settings → Network.
@@ -111,7 +111,7 @@ keep = 14           # optional; how many days of backups to keep
 
 ## How it works
 
-macOS has no driver for this modem, so no serial port appears. Mailroom talks to the modem's AT interface directly through libusb, with no driver to install and no root access. The details, and the traps found along the way, are in [ADR 0001](./docs/adr/0001-talk-to-modems-over-libusb.md). The most important one: the modem has two AT interfaces and both must be read at all times, or SMS in plain letters and digits silently never arrive.
+macOS has no driver for this modem, so no serial port appears. SMS Mailroom talks to the modem's AT interface directly through libusb, with no driver to install and no root access. The details, and the traps found along the way, are in [ADR 0001](./docs/adr/0001-talk-to-modems-over-libusb.md). The most important one: the modem has two AT interfaces and both must be read at all times, or SMS in plain letters and digits silently never arrive.
 
 The program is a single Python process: one thread per modem receives messages, SQLite stores them, and the page is FastAPI with server-rendered HTML and no front-end build step.
 

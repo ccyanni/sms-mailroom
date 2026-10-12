@@ -1,8 +1,8 @@
-# Mailroom 操作手冊
+# SMS Mailroom 操作手冊
 
 正體中文 | [English](./runbook.en.md)
 
-說明如何在 Mac mini 上執行、檢查和調整 Mailroom。
+說明如何在 Mac mini 上執行、檢查和調整 SMS Mailroom。
 
 用詞對照（定義見 `CONTEXT.md`）：模組＝Modem、簡訊＝Message、轉發＝Forwarding、異常通知＝Alert。
 
@@ -10,7 +10,7 @@
 
 | 項目 | 位置 |
 |---|---|
-| Mailroom 服務 | launchd 系統服務 `us.b612.mailroom`（`/Library/LaunchDaemons/us.b612.mailroom.plist`），以擁有者的帳號執行，使用這個專案的 `.venv` |
+| SMS Mailroom 服務 | launchd 系統服務 `us.b612.mailroom`（`/Library/LaunchDaemons/us.b612.mailroom.plist`），以擁有者的帳號執行，使用這個專案的 `.venv` |
 | 網頁 | `https://mailroom.example.com`，經由 Cloudflare Tunnel 連到 `127.0.0.1:8000`，由 Cloudflare Access 保護 |
 | Tunnel | `cloudflared`，另一個 launchd 系統服務（`com.cloudflare.cloudflared`） |
 | 設定檔 | `~/Library/Application Support/Mailroom/config.toml`（僅限本人讀取，內含 Telegram 機器人的 token） |
@@ -25,7 +25,7 @@
 - **確認是否正常運作：** 打開網頁，切到「狀態」分頁。每張 SIM 一張卡片，顯示業者、訊號和註冊狀態；下方列出接著的模組，以及系統本身的狀態（服務、Telegram、macOS 網路服務、USB 連線、存取保護）。有異常時最上方會出現黃色方框，「狀態」分頁的圖示上也會有紅點，同一則內容會發到 Telegram。
 - **整理簡訊：** 在「簡訊」分頁點一則簡訊可以展開全文。有用的按「封存」，移到「已封存」；沒用的按「刪除」。要一次刪除多則，按「選取」後勾選，或先搜尋再按「全選」。
 - **語言與外觀：** 右上角的齒輪圖示可以切換中文／English，以及跟隨系統、淺色、深色。
-- **啟動通知：** 服務每次啟動後約 15 秒，會在 Telegram 發一則「🟢 Mailroom 已啟動」，說明是電腦剛重新開機還是只有服務重啟，以及接上幾片模組、幾張 SIM 正常收訊。沒有預期卻收到這則通知，表示服務當掉後自動重啟了，請查看紀錄。
+- **啟動通知：** 服務每次啟動後約 15 秒，會在 Telegram 發一則「🟢 SMS Mailroom 已啟動」，說明是電腦剛重新開機還是只有服務重啟，以及接上幾片模組、幾張 SIM 正常收訊。沒有預期卻收到這則通知，表示服務當掉後自動重啟了，請查看紀錄。
 - **查看紀錄：** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
 - **重新啟動**（修改 `config.toml` 或更新程式之後）：`sudo launchctl kickstart -k system/us.b612.mailroom`
 - **停止並移除服務：** `sudo scripts/install-service.sh uninstall`
@@ -57,12 +57,12 @@ cd <專案資料夾> && sudo scripts/install-service.sh         # 重新啟動�
 - **天線：** 接在標示 `MANT` 的天線座。`GPS` 和 `BT` 兩個座用不到；天線接到這兩個座會完全沒有訊號。
 - **重新插上模組：** 拔掉後等 5 到 8 秒再插回去。太快插回，板子可能有電但模組沒有啟動。
 - **更換 SIM 卡：** 先拔掉模組，換卡，等幾秒，再插回去。新的 SIM 會自動登記；不論插在哪一片模組上，SIM 的名稱、轉發設定和簡訊紀錄都跟著它走。
-- **增加模組：** 直接插上即可，Mailroom 會在幾秒內接手。
+- **增加模組：** 直接插上即可，SMS Mailroom 會在幾秒內接手。
 - **USB 集線器：** 請接上獨立的 5 V 電源。模組如果一直從 USB 上掉線，會收到「keeps disconnecting」的異常通知；請檢查集線器、它的電源和線材，或把模組直接插在 Mac 上。
 
 ## 設定檔
 
-`config.toml` 裡 Mailroom 會讀取的所有區段：
+`config.toml` 裡 SMS Mailroom 會讀取的所有區段：
 
 ```toml
 language = "zh"     # 選填；"zh" 或 "en"。Telegram 訊息用這個語言，網頁在你另外選擇之前也用它
@@ -91,12 +91,12 @@ keep = 14           # 選填；保留幾份
 2. **Tunnel。** 安裝 `cloudflared`（`brew install cloudflared`）。在 Cloudflare Zero Trust 後台建立一個 Tunnel，執行它顯示的 `cloudflared service install` 指令，再新增一個公開主機名稱，指向 `http://localhost:8000`。
 3. **Access。** 在 Zero Trust 新增一個自架（self-hosted）的 Access 應用程式，網域填同一個主機名稱，政策設為只允許擁有者的電子郵件。記下團隊網域和應用程式的 AUD 標籤。用無痕視窗打開該網址，確認會被導向登入頁；如果沒有，表示網頁沒有受到保護。
 4. **設定檔。** 依上一節的格式寫好 `config.toml`，並執行 `chmod 600`。
-5. **macOS 網路服務。** 在「系統設定 → 網路」停用「A76XX Series LTE Module」，確保 Mac 不會透過 SIM 卡上網。這個服務一旦被啟用，Mailroom 會發異常通知。
+5. **macOS 網路服務。** 在「系統設定 → 網路」停用「A76XX Series LTE Module」，確保 Mac 不會透過 SIM 卡上網。這個服務一旦被啟用，SMS Mailroom 會發異常通知。
 6. **服務。** 執行 `uv sync`，再執行 `sudo scripts/install-service.sh`。
 7. **檢查。** 從公開網址登入，傳一則簡訊到其中一張 SIM，確認它出現在網頁和 Telegram。
 
 ## 已知的行為
 
-- 模組偶爾會回報讀取錯誤，Mailroom 會重試並繼續運作。如果一連串讀取錯誤之後模組就消失，問題多半出在 USB 集線器。
+- 模組偶爾會回報讀取錯誤，SMS Mailroom 會重試並繼續運作。如果一連串讀取錯誤之後模組就消失，問題多半出在 USB 集線器。
 - 漫遊中的 SIM 有時會晚幾分鐘才收到簡訊，或同一則收到兩次。寄件者、電信網路標記的時間和內容都相同的重複簡訊，只會存一筆。
 - 在網頁上刪除的簡訊無法復原。

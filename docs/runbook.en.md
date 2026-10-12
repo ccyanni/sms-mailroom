@@ -1,14 +1,14 @@
-# Mailroom runbook
+# SMS Mailroom runbook
 
 [正體中文](./runbook.md) | English
 
-How to run, check and change the Mailroom installation on the Mac mini. Vocabulary follows `CONTEXT.md`.
+How to run, check and change the SMS Mailroom installation on the Mac mini. Vocabulary follows `CONTEXT.md`.
 
 ## What is installed
 
 | Piece | Where |
 |---|---|
-| Mailroom service | launchd daemon `us.b612.mailroom` (`/Library/LaunchDaemons/us.b612.mailroom.plist`), running as the owner's account from this repository's `.venv` |
+| SMS Mailroom service | launchd daemon `us.b612.mailroom` (`/Library/LaunchDaemons/us.b612.mailroom.plist`), running as the owner's account from this repository's `.venv` |
 | Web page | `https://mailroom.example.com`, served through a Cloudflare Tunnel to `127.0.0.1:8000` and guarded by Cloudflare Access |
 | Tunnel | `cloudflared`, its own launchd daemon (`com.cloudflare.cloudflared`) |
 | Settings | `~/Library/Application Support/Mailroom/config.toml` (private; holds the Telegram bot token) |
@@ -23,7 +23,7 @@ Both daemons start at boot, before anyone logs in, and restart if they stop.
 - **Is it working?** Open the web page and go to Status. Each SIM has a card with its operator, signal and registration; below are the attached Modems and the state of the system itself (service, Telegram, macOS network service, USB connection, page protection). Anything wrong is listed in a yellow box at the top, marks the Status tab with a red dot, and has also been sent to Telegram.
 - **Tidying Messages:** under Messages, tap a Message to open it. Archive what is worth keeping; delete the rest. To delete several at once, tap Select and tick them, or search first and tap Select all.
 - **Language and appearance:** the gear at the top right switches between 中文 and English, and between following the system, light and dark.
-- **Start notice:** about 15 seconds after the service starts, Telegram receives "🟢 Mailroom started", saying whether the Mac had just booted or only the service restarted, and how many Modems are attached and SIMs receiving. Getting one you did not expect means the service crashed and restarted itself; read the log.
+- **Start notice:** about 15 seconds after the service starts, Telegram receives "🟢 SMS Mailroom started", saying whether the Mac had just booted or only the service restarted, and how many Modems are attached and SIMs receiving. Getting one you did not expect means the service crashed and restarted itself; read the log.
 - **Read the log:** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
 - **Restart** (after editing `config.toml` or updating the code): `sudo launchctl kickstart -k system/us.b612.mailroom`
 - **Stop and remove the service:** `sudo scripts/install-service.sh uninstall`
@@ -55,12 +55,12 @@ Messages received after that backup are not in it; they are still in the Telegra
 - **Antenna:** connect it to the socket marked `MANT`. The `GPS` and `BT` sockets are not used; an antenna on either gives no signal at all.
 - **Replugging a Modem:** after unplugging, wait 5 to 8 seconds before plugging it back in. Reconnected sooner, the board can power up without the module starting.
 - **Changing a SIM:** unplug the Modem, swap the SIM, wait, plug it back in. The SIM is registered by itself and keeps its label, Forwarding setting and Messages whichever Modem it is in.
-- **Adding a Modem:** just plug it in; Mailroom picks it up within a few seconds.
+- **Adding a Modem:** just plug it in; SMS Mailroom picks it up within a few seconds.
 - **USB hub:** power it from its own 5 V supply. A Modem that keeps dropping off the bus raises a "keeps disconnecting" Alert; check the hub, its power supply and the cable, or plug the Modem straight into the Mac.
 
 ## Settings
 
-`config.toml`, with every section Mailroom reads:
+`config.toml`, with every section SMS Mailroom reads:
 
 ```toml
 language = "zh"     # optional; "zh" or "en". Used for Telegram texts, and for the page until you pick another there
@@ -89,12 +89,12 @@ Without `[telegram]`, Messages are stored but not forwarded. Without `[access]`,
 2. **Tunnel.** Install `cloudflared` (`brew install cloudflared`). In the Cloudflare Zero Trust dashboard create a tunnel, run the `cloudflared service install` command it shows, and add a public hostname that points to `http://localhost:8000`.
 3. **Access.** In Zero Trust, add a self-hosted Access application for the same hostname with an Allow policy for the owner's email. Note the team domain and the application's AUD tag. Check that the hostname now redirects to a login page when opened in a private window; if it does not, the page is not protected.
 4. **Config.** Write `config.toml` as above and `chmod 600` it.
-5. **macOS network service.** In System Settings → Network, disable "A76XX Series LTE Module", so the Mac never sends traffic over a SIM. Mailroom raises an Alert if it is ever enabled.
+5. **macOS network service.** In System Settings → Network, disable "A76XX Series LTE Module", so the Mac never sends traffic over a SIM. SMS Mailroom raises an Alert if it is ever enabled.
 6. **Service.** `uv sync`, then `sudo scripts/install-service.sh`.
 7. **Check.** Sign in at the public hostname, send an SMS to one of the SIMs, and see it arrive on the page and in Telegram.
 
 ## Known behaviour
 
-- A Modem occasionally reports a read error; Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub.
+- A Modem occasionally reports a read error; SMS Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub.
 - Roaming SIMs sometimes deliver an SMS minutes late, or twice. A repeat with the same sender, network time and text is stored once.
 - A Message deleted on the page is gone for good.

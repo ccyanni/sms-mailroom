@@ -1,6 +1,6 @@
 # 15: Back up the database every day
 
-**What to build:** Mailroom keeps a copy of its database from each of the last 14 days, so a damaged or mistakenly emptied database can be put back. A backup is made when the service starts and then once per calendar day (Taipei time), as a consistent snapshot taken while Mailroom keeps running. Backups live beside the database on the same computer, readable only by the owner, and older ones are removed. The Status section shows when the last backup was made and says so if backing up is failing. The directory and how many to keep can be set in the config file.
+**What to build:** SMS Mailroom keeps a copy of its database from each of the last 14 days, so a damaged or mistakenly emptied database can be put back. A backup is made when the service starts and then once per calendar day (Taipei time), as a consistent snapshot taken while SMS Mailroom keeps running. Backups live beside the database on the same computer, readable only by the owner, and older ones are removed. The Status section shows when the last backup was made and says so if backing up is failing. The directory and how many to keep can be set in the config file.
 
 **Blocked by:** None (can start immediately)
 

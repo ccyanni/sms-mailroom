@@ -1,11 +1,11 @@
-# Mailroom
+# SMS Mailroom
 
-Mailroom receives SMS on several SIMs through cellular modems attached to one always-on computer, so the owner can read them remotely and have them forwarded, instead of leaving phones at home.
+SMS Mailroom receives SMS on several SIMs through cellular modems attached to one always-on computer, so the owner can read them remotely and have them forwarded, instead of leaving phones at home.
 
 ## Language
 
-**Mailroom**:
-The software service as a whole.
+**SMS Mailroom**:
+The software service as a whole. This is the name people read; identifiers, paths and the package keep the short form `mailroom`.
 _Avoid_: Hub, 4g-hub, SIM box
 
 **Modem**:
@@ -33,7 +33,7 @@ Delivering a copy of a Message to the owner's Telegram chat. It is switched on o
 _Avoid_: Relay, push, notification
 
 **Alert**:
-A notice Mailroom itself sends to the owner's Telegram chat when a Modem or SIM stops working or recovers. It is not a Message and is never subject to Forwarding settings.
+A notice SMS Mailroom itself sends to the owner's Telegram chat when a Modem or SIM stops working or recovers. It is not a Message and is never subject to Forwarding settings.
 _Avoid_: Warning, notification, health message
 
 **USB hub**:

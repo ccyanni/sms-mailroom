@@ -1,6 +1,6 @@
 # 09: Only the owner can reach the web page
 
-**What to build:** The web page is reachable only through Cloudflare Access. Mailroom listens on the loopback address only and validates the Cloudflare Access JWT on every request against the configured team domain and audience tag, so a tunnel misconfiguration cannot expose Messages. Mailroom has no accounts or passwords of its own.
+**What to build:** The web page is reachable only through Cloudflare Access. SMS Mailroom listens on the loopback address only and validates the Cloudflare Access JWT on every request against the configured team domain and audience tag, so a tunnel misconfiguration cannot expose Messages. SMS Mailroom has no accounts or passwords of its own.
 
 **Blocked by:** 01
 

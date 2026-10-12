@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Mailroom</title>
+  <title>SMS Mailroom</title>
   <script>
     // Apply the chosen appearance before the first paint. "system" leaves it to the browser.
     try {
@@ -86,7 +86,7 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <h1>Mailroom</h1>
+      <h1>SMS Mailroom</h1>
       <details class="gear" id="gear">
         <summary aria-label="{{ t.settings }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg></summary>
         <section class="settings" aria-label="{{ t.settings }}">
@@ -110,7 +110,7 @@
     <main id="refresh">{% block content %}{% endblock %}</main>
   </div>
 
-  <nav class="tabs" aria-label="Mailroom">
+  <nav class="tabs" aria-label="SMS Mailroom">
     <div>
       <a class="tab" href="/"{% if view == "messages" %} aria-current="page"{% endif %}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13l2.5-7h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13h4.5l1 2h5l1-2H20"/></svg>

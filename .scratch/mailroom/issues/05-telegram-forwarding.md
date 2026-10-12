@@ -1,13 +1,13 @@
 # 05: Forward Messages to Telegram
 
-**What to build:** Every Message on a SIM with Forwarding on is delivered to the owner's private Telegram chat within seconds, showing which SIM received it, the sender, the time and the full text. If Telegram cannot be reached, Mailroom keeps retrying until it succeeds, and the web page shows which Messages have been forwarded. A multi-Part Message is forwarded once complete, or after the one-minute timeout marked incomplete and then updated when completed. The bot only sends; it accepts no commands. The bot token and chat ID come from a config file outside the repository.
+**What to build:** Every Message on a SIM with Forwarding on is delivered to the owner's private Telegram chat within seconds, showing which SIM received it, the sender, the time and the full text. If Telegram cannot be reached, SMS Mailroom keeps retrying until it succeeds, and the web page shows which Messages have been forwarded. A multi-Part Message is forwarded once complete, or after the one-minute timeout marked incomplete and then updated when completed. The bot only sends; it accepts no commands. The bot token and chat ID come from a config file outside the repository.
 
 **Blocked by:** 01, 04
 
 **Status:** done
 
 - [x] A stored Message is sent to the configured Telegram chat with SIM label, sender, Taipei time and full text
-- [x] A failed send is retried until it succeeds, across restarts of Mailroom
+- [x] A failed send is retried until it succeeds, across restarts of SMS Mailroom
 - [x] A Message is never forwarded twice
 - [x] The web page shows whether each Message has been forwarded
 - [x] An incomplete Message is forwarded marked as incomplete after the timeout, and the owner is shown the full text when it completes

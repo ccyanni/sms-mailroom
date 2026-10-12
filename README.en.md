@@ -36,6 +36,17 @@ It exists to fix one specific annoyance: a handful of SIMs kept only for verific
 
 Mailroom only receives SMS. It does not send messages, take calls, or use a SIM's mobile data.
 
+## Warning: mobile data and roaming charges
+
+Mailroom only receives SMS and never uses mobile data itself. But once a modem is on the network it sets up a data connection on its own, and **Mailroom cannot switch that off**: torn down with an AT command, the modem brings it back within about 20 seconds.
+
+Mailroom keeps traffic off that connection in two ways:
+
+- It keeps the modem's USB network sharing disabled, so the computer cannot reach the internet through the modem.
+- It checks that the macOS network service "A76XX Series LTE Module" is disabled, and raises an alert if it is ever enabled. You disable it once by hand in System Settings → Network.
+
+Even so, the connection itself remains, and this project cannot promise that a carrier will not charge for it. **If a SIM roams, ask its carrier to turn data roaming off for that number.** That is the only sure way to avoid roaming data charges, and it does not affect receiving SMS.
+
 ## Quick start
 
 ```bash
@@ -100,6 +111,15 @@ The program is a single Python process: one thread per modem receives messages, 
 - A roaming SIM sometimes receives an SMS minutes late; that is the network's doing.
 - A modem occasionally reports a read error, which is retried automatically; the cause is not yet known.
 - Messages are stored unencrypted in the local SQLite database.
+
+## To do
+
+Not built yet, and may be added later:
+
+- [ ] Sending SMS
+- [ ] Regular database backups
+- [ ] Forgetting a SIM: removing one that is no longer used from the list
+- [ ] A notice when the Mac reboots or the service restarts
 
 ## How this was built
 

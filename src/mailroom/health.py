@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import threading
 from datetime import datetime, timedelta, timezone
@@ -11,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from mailroom import i18n
 from mailroom.forwarder import Forwarder
-from mailroom.receiver import NOT_REGISTERED, RECEIVING
+from mailroom.receiver import HOME, NOT_REGISTERED, RECEIVING, ROAMING
 from mailroom.service import Service
 from mailroom.store import Store, StoredAlert
 
@@ -40,6 +41,16 @@ def network_service_enabled() -> bool | None:
     return result.stdout.strip() == "Enabled"
 
 
+def booted_recently(within: float = 600.0) -> bool:
+    """Whether the Mac started up in the last `within` seconds, as opposed to only the service restarting."""
+    try:
+        result = subprocess.run(["sysctl", "-n", "kern.boottime"], capture_output=True, text=True, timeout=10)
+        booted = int(re.search(r"sec = (\d+)", result.stdout).group(1))
+    except (OSError, subprocess.TimeoutExpired, AttributeError):
+        return False
+    return datetime.now(timezone.utc).timestamp() - booted < within
+
+
 class HealthMonitor:
     def __init__(
         self,
@@ -51,8 +62,14 @@ class HealthMonitor:
         interval: float = 5.0,
         network_service_enabled: Callable[[], bool | None] | None = None,
         language: str = i18n.DEFAULT_LANGUAGE,
+        start_notice: str | None = None,
+        start_notice_after: float = 15.0,
     ) -> None:
-        """A problem is reported once it has lasted `alert_after` seconds, so brief blips stay quiet."""
+        """A problem is reported once it has lasted `alert_after` seconds, so brief blips stay quiet.
+
+        `start_notice` is "boot" or "restart" to tell the owner that Mailroom has started, once the
+        Modems have had `start_notice_after` seconds to be found; None sends nothing.
+        """
         self._store = store
         self._service = service
         self._forwarder = forwarder
@@ -64,6 +81,8 @@ class HealthMonitor:
         self._language = language
         self.network_service_state: bool | None = None  # as last probed; None when unknown
         self._outage_since: datetime | None = None
+        self._start_notice = start_notice
+        self._start_notice_at = datetime.now(timezone.utc) + timedelta(seconds=start_notice_after)
         self._outage_notices: list[dict] = []
 
     def run(self, stop: threading.Event) -> None:
@@ -133,6 +152,21 @@ class HealthMonitor:
             if key not in problems:
                 self._resolve(alert)
         self._watch_telegram(now)
+        self._announce_start(now, attached)
+
+    def _announce_start(self, now: datetime, attached: list) -> None:
+        if self._start_notice is None or now < self._start_notice_at:
+            return
+        receiving = sum(modem.network.registration in (HOME, ROAMING) for modem in attached if modem.iccid)
+        summary = i18n.text(
+            self._language,
+            "started_summary",
+            modems=len(attached),
+            sims=len(self._store.list_sims()),
+            good=receiving,
+        )
+        if self._send_text(i18n.text(self._language, f"started_{self._start_notice}") + "\n" + summary):
+            self._start_notice = None
 
     def _raise(self, alert: StoredAlert, now: datetime, grace: timedelta) -> None:
         raised = alert.raised or now - alert.since >= grace
@@ -164,12 +198,15 @@ class HealthMonitor:
         ]
 
     def _deliver(self, header: str, kind: str, values: dict) -> bool:
+        return self._send_text(
+            i18n.text(self._language, header) + "\n" + i18n.alert_text(self._language, kind, values)
+        )
+
+    def _send_text(self, text: str) -> bool:
         if self._send is None:
             return False
         try:
-            self._send(
-                i18n.text(self._language, header) + "\n" + i18n.alert_text(self._language, kind, values)
-            )
+            self._send(text)
         except Exception:
             return False
         return True

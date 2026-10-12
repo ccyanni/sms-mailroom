@@ -224,3 +224,90 @@ def test_healthy_mailroom_sends_no_alerts(modem, telegram, mailroom):
         settle()
 
     assert alerts(telegram) == []
+
+
+# --- The notice that Mailroom has started --------------------------------------------------------
+
+
+@pytest.fixture
+def announcing(transport, telegram, tmp_path):
+    def start(kind="restart", language=None):
+        return TestClient(
+            create_app(
+                transport,
+                tmp_path / "mailroom.db",
+                poll_interval=0.1,
+                scan_interval=0.05,
+                telegram=TelegramSettings("123:token", "4242"),
+                http_post=telegram,
+                forward_interval=0.05,
+                alert_after=60,
+                health_interval=0.05,
+                language=language,
+                start_notice=kind,
+                start_notice_after=0.5,
+            )
+        )
+    return start
+
+
+def test_owner_is_told_once_when_the_service_restarts(modem, telegram, announcing):
+    with announcing("restart"):
+        wait_for(lambda: alerts(telegram))
+        settle(1.0)
+
+    assert alerts(telegram) == ["🟢 Mailroom started (the service restarted)\n1 Modems attached, 1 of 1 SIMs receiving"]
+
+
+def test_start_notice_says_when_the_mac_has_just_booted(modem, telegram, announcing):
+    with announcing("boot"):
+        wait_for(lambda: alerts(telegram))
+
+    assert alerts(telegram)[0].startswith("🟢 Mailroom started (the Mac has just booted)\n")
+
+
+def test_start_notice_counts_sims_that_are_not_receiving(transport, modem, telegram, announcing):
+    with announcing():
+        wait_for(lambda: alerts(telegram))  # the SIM is now known
+    telegram.calls.clear()
+    transport.unplug(modem)
+
+    with announcing():
+        wait_for(lambda: alerts(telegram))
+
+    assert alerts(telegram) == ["🟢 Mailroom started (the service restarted)\n0 Modems attached, 0 of 1 SIMs receiving"]
+
+
+def test_start_notice_uses_the_configured_language(modem, telegram, announcing):
+    with announcing("boot", language="zh"):
+        wait_for(lambda: alerts(telegram))
+
+    assert alerts(telegram) == ["🟢 Mailroom 已啟動（電腦剛重新開機）\n接上 1 片模組，1 張 SIM 中有 1 張正常收訊"]
+
+
+def test_start_notice_is_delivered_once_telegram_becomes_reachable(modem, telegram, announcing):
+    telegram.down = True
+    with announcing():
+        settle(1.0)
+        assert alerts(telegram) == []
+
+        telegram.down = False
+        wait_for(lambda: alerts(telegram))
+        settle(0.5)
+
+    assert len(alerts(telegram)) == 1
+
+
+def test_no_start_notice_unless_asked_for(modem, telegram, mailroom):
+    with mailroom() as page:
+        wait_for(lambda: receiving(page))
+        settle(1.0)
+
+    assert alerts(telegram) == []
+
+
+def test_boot_is_told_apart_from_a_service_restart():
+    from mailroom.health import booted_recently
+
+    assert booted_recently(within=10 * 365 * 86400) is True  # this Mac booted less than ten years ago
+    assert booted_recently(within=0) is False

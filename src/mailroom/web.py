@@ -54,6 +54,8 @@ def create_app(
     network_service_enabled: Callable[[], bool | None] | None = None,
     access: AccessPolicy | None = None,
     language: str | None = None,
+    start_notice: str | None = None,
+    start_notice_after: float = 15.0,
 ) -> FastAPI:
     """`language` is used for Telegram texts and for the page until the owner picks another."""
     access = access or OpenAccess()
@@ -63,7 +65,16 @@ def create_app(
     forwarder = Forwarder(store, send, part_timeout, forward_interval, language)
     service = Service(transport, store, forwarder, poll_interval, scan_interval)
     monitor = HealthMonitor(
-        store, service, forwarder, send, alert_after, health_interval, network_service_enabled, language
+        store,
+        service,
+        forwarder,
+        send,
+        alert_after,
+        health_interval,
+        network_service_enabled,
+        language,
+        start_notice,
+        start_notice_after,
     )
     service.add_background(monitor.run)
     started_at = datetime.now(timezone.utc)

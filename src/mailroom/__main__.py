@@ -11,7 +11,7 @@ import uvicorn
 
 from mailroom import config
 from mailroom.access import CloudflareAccess, LockedAccess, OpenAccess
-from mailroom.health import network_service_enabled
+from mailroom.health import booted_recently, network_service_enabled
 from mailroom.usb import UsbTransport
 from mailroom.web import create_app
 
@@ -51,6 +51,7 @@ def main() -> None:
         network_service_enabled=network_service_enabled,
         access=access,
         language=settings.language,
+        start_notice="boot" if booted_recently() else "restart",
     )
     uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("MAILROOM_PORT", "8000")), log_level="warning")
 

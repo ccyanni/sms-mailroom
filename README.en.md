@@ -19,6 +19,7 @@ It exists to fix one specific annoyance: a handful of SIMs kept only for verific
 - **Web interface**, built for a phone: search, filter by SIM, archive what is worth keeping, delete junk several at a time. A verification code in a message is shown on its own with a copy button.
 - **Status at a glance**: each SIM's operator, roaming state and signal, and the state of the system itself.
 - **Alerts**: when a SIM drops off the network, a modem disappears or keeps disconnecting, or Telegram is unreachable, you are told on Telegram, and told again when it is over.
+- **Start notice**: every time the service starts you are told, and whether the Mac had just booted or only the service restarted.
 - **Long messages reassembled**: an SMS the network split into parts becomes one message, even when the parts arrive out of order.
 - **Traditional Chinese and English**, light and dark appearance.
 - **Yours only**: the page is served on the loopback address, published through a Cloudflare Tunnel, and every request's Cloudflare Access token is verified.
@@ -119,7 +120,6 @@ Not built yet, and may be added later:
 - [ ] Sending SMS
 - [ ] Regular database backups
 - [ ] Forgetting a SIM: removing one that is no longer used from the list
-- [ ] A notice when the Mac reboots or the service restarts
 
 ## How this was built
 

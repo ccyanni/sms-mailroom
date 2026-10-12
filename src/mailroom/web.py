@@ -34,6 +34,7 @@ _FORWARD_LABELS = {
     SKIPPED: "forward_skipped",
 }
 # A Message that talks about a code, and the first run of 4 to 8 digits in it that is not a date, a time or an amount.
+_PHONE_NUMBER = re.compile(r"(\+?\d[\d\s-]{2,18})?")  # blank goes back to the number the SIM reports
 _MENTIONS_CODE = re.compile(r"驗證|验证|校驗|校验|動態密碼|动态密码|密碼|密码|code|otp|passcode|\bpin\b", re.IGNORECASE)
 _CODE = re.compile(
     r"(?<![\d:/$¥-])(?<!\d\.)(?<![A-Za-z])\d{4,8}(?!\d)(?![.:/]\d)(?![年月日元])"
@@ -191,6 +192,7 @@ def create_app(
                     "iccid": stored.iccid,
                     "label": stored.label,
                     "number": stored.number or t["number_unknown"],
+                    "number_value": stored.number or "",
                     "forwarding": stored.forwarding,
                     "good": registration in (HOME, ROAMING),
                     "operator": (network and network.operator) or "–",
@@ -295,11 +297,15 @@ def create_app(
         store.set_archived(message_id, (await _form(request)).get("archived") == "1")
         return _back(request)
 
-    @app.post("/sims/{iccid}/label")
-    async def rename_sim(iccid: str, request: Request):
-        label = (await _form(request)).get("label", "").strip()
+    @app.post("/sims/{iccid}/details")
+    async def edit_sim(iccid: str, request: Request):
+        form = await _form(request)
+        label = form.get("label", "").strip()
         if label:
             store.rename_sim(iccid, label[:60])
+        number = form.get("number")
+        if number is not None and _PHONE_NUMBER.fullmatch(number.strip()):
+            store.correct_sim_number(iccid, number.strip() or None)
         return _back(request)
 
     @app.post("/sims/{iccid}/forwarding")

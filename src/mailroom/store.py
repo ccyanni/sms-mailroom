@@ -12,13 +12,14 @@ from pathlib import Path
 
 from mailroom.pdu import Delivery, PduError, decode_deliver
 
-_SCHEMA_VERSION = 4
+_SCHEMA_VERSION = 5
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sims (
     iccid  TEXT PRIMARY KEY,
     label      TEXT NOT NULL,
     number     TEXT,
-    forwarding INTEGER NOT NULL DEFAULT 1
+    forwarding INTEGER NOT NULL DEFAULT 1,
+    number_override TEXT
 );
 CREATE TABLE messages (
     id           INTEGER PRIMARY KEY,
@@ -140,7 +141,7 @@ class Store:
     def list_sims(self) -> list[StoredSim]:
         with self._lock:
             rows = self._db.execute(
-                "SELECT s.iccid, s.label, s.number, s.forwarding, "
+                "SELECT s.iccid, s.label, COALESCE(s.number_override, s.number), s.forwarding, "
                 "(SELECT MAX(sent_at) FROM messages m WHERE m.sim_iccid = s.iccid) "
                 "FROM sims s ORDER BY s.rowid"
             ).fetchall()
@@ -152,6 +153,13 @@ class Store:
     def rename_sim(self, iccid: str, label: str) -> None:
         with self._lock, self._db:
             self._db.execute("UPDATE sims SET label = ? WHERE iccid = ?", (label, iccid))
+
+    def correct_sim_number(self, iccid: str, number: str | None) -> None:
+        """Show the owner's number for a SIM instead of the one it reports; None goes back to the SIM's own."""
+        with self._lock, self._db:
+            self._db.execute(
+                "UPDATE sims SET number_override = NULLIF(?, number) WHERE iccid = ?", (number, iccid)
+            )
 
     def set_forwarding(self, iccid: str, enabled: bool) -> None:
         with self._lock, self._db:
@@ -367,6 +375,8 @@ class Store:
                 self._db.execute("UPDATE messages SET forward_state = ?", (SKIPPED,))
             if version < 4:
                 self._db.execute("ALTER TABLE messages ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+        if "number_override" not in {row[1] for row in self._db.execute("PRAGMA table_info(sims)")}:
+            self._db.execute("ALTER TABLE sims ADD COLUMN number_override TEXT")
         self._db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
 

@@ -29,8 +29,9 @@
     .rename { margin-left: auto; }
     .rename[open] { flex-basis: 100%; margin-left: 0; }
     .rename[open] > summary { display: none; }
-    .rename form { display: flex; gap: 8px; }
-    .rename input { flex: 1; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 0 10px; }
+    .rename form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+    .rename label { flex: 1 1 140px; min-width: 0; display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+    .rename input { width: 100%; min-height: 44px; font-size: 1rem; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 0 10px; }
     .rows { display: grid; gap: 10px; }
     .rows li { display: grid; grid-template-columns: 10px 1fr; column-gap: 10px; align-items: baseline; font-size: 0.9rem; }
     .rows .dot { align-self: center; }
@@ -64,9 +65,10 @@
             <button class="switch" role="switch" aria-checked="{{ 'true' if s.forwarding else 'false' }}"><span class="track"></span><span class="forwarding-setting">{{ t.forwarding_on if s.forwarding else t.forwarding_off }}</span></button>
           </form>
           <details class="rename">
-            <summary class="link">{{ t.rename }}</summary>
-            <form method="post" action="/sims/{{ s.iccid }}/label">
-              <input type="text" name="label" value="{{ s.label }}" maxlength="60" aria-label="{{ t.sim_label }}">
+            <summary class="link">{{ t.edit_sim }}</summary>
+            <form method="post" action="/sims/{{ s.iccid }}/details">
+              <label>{{ t.sim_label }}<input type="text" name="label" value="{{ s.label }}" maxlength="60"></label>
+              <label>{{ t.sim_number }}<input type="tel" name="number" value="{{ s.number_value }}" maxlength="20"></label>
               <button class="btn primary">{{ t.save }}</button>
             </form>
           </details>

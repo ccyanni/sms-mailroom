@@ -57,6 +57,7 @@ Messages received after that backup are not in it; they are still in the Telegra
 - **Antenna:** connect it to the socket marked `MANT`. The `GPS` and `BT` sockets are not used; an antenna on either gives no signal at all.
 - **Replugging a Modem:** after unplugging, wait 5 to 8 seconds before plugging it back in. Reconnected sooner, the board can power up without the module starting.
 - **Changing a SIM:** unplug the Modem, swap the SIM, wait, plug it back in. The SIM is registered by itself and keeps its label, Forwarding setting and Messages whichever Modem it is in.
+- **A wrong or missing number:** the number is read from the SIM, and some SIMs carry none or a wrong one. Under Status, **Edit** on that SIM takes the right number; saving it blank goes back to what the SIM reports. The number is only displayed and has no effect on receiving.
 - **Adding a Modem:** just plug it in; SMS Mailroom picks it up within a few seconds.
 - **USB hub:** power it from its own 5 V supply. A Modem that keeps dropping off the bus raises a "keeps disconnecting" Alert; check the hub, its power supply and the cable, or plug the Modem straight into the Mac.
 

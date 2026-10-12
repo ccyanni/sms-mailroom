@@ -106,7 +106,7 @@ def test_renaming_a_sim_relabels_its_messages(transport, telegram, page):
     modem.deliver(build_pdu("111", "before the rename"))
     wait_for(lambda: message_labels(page))
 
-    response = page.post(f"/sims/{ICCID}/label", data={"label": "  Bank OTP  "})
+    response = page.post(f"/sims/{ICCID}/details", data={"label": "  Bank OTP  "})
     modem.deliver(build_pdu("222", "after the rename"))
     wait_for(lambda: len(telegram.calls) == 2)
 
@@ -119,7 +119,7 @@ def test_renaming_a_sim_relabels_its_messages(transport, telegram, page):
 def test_blank_label_is_ignored(transport, page):
     plug(transport, page)
 
-    page.post(f"/sims/{ICCID}/label", data={"label": "   "})
+    page.post(f"/sims/{ICCID}/details", data={"label": "   "})
 
     assert sims(page)[0]["label"] == "+886900000001"
 
@@ -127,9 +127,55 @@ def test_blank_label_is_ignored(transport, page):
 def test_label_cannot_inject_markup(transport, page):
     plug(transport, page)
 
-    page.post(f"/sims/{ICCID}/label", data={"label": '"><script>alert(1)</script>'})
+    page.post(f"/sims/{ICCID}/details", data={"label": '"><script>alert(1)</script>'})
 
     assert "<script>alert(1)</script>" not in page.get("/").text
+
+
+def test_number_a_sim_reports_wrongly_can_be_corrected(transport, page):
+    modem = plug(transport, page, number="+19886900000001")
+
+    page.post(f"/sims/{ICCID}/details", data={"label": "Home", "number": " +886900000001 "})
+    transport.unplug(modem)
+    wait_for(lambda: sims(page)[0]["registration"] == "not in a Modem")
+    transport.plug(modem)
+    wait_for(lambda: sims(page)[0]["registration"] != "not in a Modem")
+
+    (sim,) = sims(page)
+    assert (sim["label"], sim["number"]) == ("Home", "+886900000001")
+
+
+def test_number_can_be_given_to_a_sim_that_reports_none(transport, page):
+    plug(transport, page, number=None)
+
+    page.post(f"/sims/{ICCID}/details", data={"number": "0900 000 001"})
+
+    assert sims(page)[0]["number"] == "0900 000 001"
+
+
+def test_blank_number_goes_back_to_what_the_sim_reports(transport, page):
+    plug(transport, page)
+    page.post(f"/sims/{ICCID}/details", data={"number": "+886911111111"})
+
+    page.post(f"/sims/{ICCID}/details", data={"number": ""})
+
+    assert sims(page)[0]["number"] == "+886900000001"
+
+
+def test_number_that_is_not_a_phone_number_is_ignored(transport, page):
+    plug(transport, page)
+
+    page.post(f"/sims/{ICCID}/details", data={"number": "call me"})
+
+    assert sims(page)[0]["number"] == "+886900000001"
+
+
+def test_renaming_a_sim_leaves_its_number_alone(transport, page):
+    plug(transport, page)
+
+    page.post(f"/sims/{ICCID}/details", data={"label": "Home", "number": "+886900000001"})
+
+    assert sims(page)[0]["number"] == "+886900000001"
 
 
 def test_messages_are_not_forwarded_while_forwarding_is_off(transport, telegram, page):
@@ -166,7 +212,7 @@ def test_sim_moved_to_another_modem_keeps_its_label_settings_and_messages(transp
     first = plug(transport, page, imei="860000000000001")
     first.deliver(build_pdu("111", "in the first Modem"))
     wait_for(lambda: message_labels(page))
-    page.post(f"/sims/{ICCID}/label", data={"label": "Travel SIM"})
+    page.post(f"/sims/{ICCID}/details", data={"label": "Travel SIM"})
     page.post(f"/sims/{ICCID}/forwarding", data={"enabled": "0"})
 
     transport.unplug(first)

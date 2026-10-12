@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import logging.handlers
 import os
 from pathlib import Path
 
@@ -18,7 +19,16 @@ DEFAULT_DB = config.DATA_DIR / "mailroom.db"
 
 
 def main() -> None:
-    logging.basicConfig(level=os.environ.get("MAILROOM_LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    log_file = os.environ.get("MAILROOM_LOG_FILE")
+    handler: logging.Handler = logging.StreamHandler()
+    if log_file:
+        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=5_000_000, backupCount=3)
+    logging.basicConfig(
+        level=os.environ.get("MAILROOM_LOG_LEVEL", "INFO"),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=[handler],
+    )
     db_path = Path(os.environ.get("MAILROOM_DB", DEFAULT_DB))
     db_path.parent.mkdir(parents=True, exist_ok=True)
     settings = config.load()

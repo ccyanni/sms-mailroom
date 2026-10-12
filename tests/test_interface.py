@@ -78,7 +78,9 @@ def note(page, name: str) -> str:
         ("Your code is 482913, valid for 5 minutes", "482913"),
         ("G-731840 is your Google verification code.", "731840"),
         ("驗證碼 4821，請勿提供給他人", "4821"),
-        ("Balance 268.00, card ending 4471", "4471"),
+        ("(验证密码)662022，尊敬的用户，您正在登录中国移动 APP，该验证码5分钟内有效。", "662022"),
+        ("您于2026年10月12日申请的动态密码为 905512", "905512"),
+        ("Use OTP 55021 before 12:30 on 2026-10-12", "55021"),
     ],
 )
 def test_a_code_in_a_message_is_shown_on_its_own_with_a_copy_button(modem, mailroom, text, code):
@@ -89,7 +91,19 @@ def test_a_code_in_a_message_is_shown_on_its_own_with_a_copy_button(modem, mailr
         assert f'data-copy="{code}"' in page.get("/").text
 
 
-@pytest.mark.parametrize("text", ["See you at 8", "Paid 268.00 on 10/11", "Call 0912345678 back", "Order 123456789012"])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "See you at 8",
+        "Paid 268.00 on 10/11",
+        "Call 0912345678 back",
+        "Order 123456789012",
+        "Balance 268.00, card ending 4471",
+        "交费/充值提醒：您于2026年10月12日01:02成功缴费100.00元。",
+        "測試 0821",
+        "您的密碼已於 2026/10/12 變更",
+    ],
+)
 def test_text_without_a_code_gets_no_copy_button(modem, mailroom, text):
     with mailroom() as page:
         modem.deliver(build_pdu("Friend", text))

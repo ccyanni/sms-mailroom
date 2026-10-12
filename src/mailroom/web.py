@@ -32,8 +32,9 @@ _FORWARD_LABELS = {
     SENT: "forward_sent",
     SKIPPED: "forward_skipped",
 }
-# A run of 4 to 8 digits standing on its own is almost always the code the Message exists to deliver.
-_CODE = re.compile(r"(?<![\d.])\d{4,8}(?![\d.])")
+# A Message that talks about a code, and the first run of 4 to 8 digits in it that is not a date, a time or an amount.
+_MENTIONS_CODE = re.compile(r"驗證|验证|校驗|校验|動態密碼|动态密码|密碼|密码|code|otp|passcode|\bpin\b", re.IGNORECASE)
+_CODE = re.compile(r"(?<![\d.:/$¥-])(?<![A-Za-z])\d{4,8}(?![\d.:/年月日元])|(?<=[A-Za-z]-)\d{4,8}(?![\d.:/])")
 _UNSTABLE_WINDOW = timedelta(minutes=30)
 _UNSTABLE_DROPS = 3
 _templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
@@ -110,7 +111,7 @@ def create_app(
             "search": search or None,
         }
         for m in store.list_messages(**found, archived=archived):
-            code = _CODE.search(m.text)
+            code = _CODE.search(m.text) if _MENTIONS_CODE.search(m.text) else None
             rows.append(
                 {
                     "id": m.id,

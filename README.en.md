@@ -6,6 +6,12 @@ Mailroom lets an always-on Mac receive your SMS for you. Put each SIM in a USB 4
 
 It exists to fix one specific annoyance: a handful of SIMs kept only for verification codes, each sitting in a phone left at home, unreachable when you are out, with codes that expire in minutes.
 
+<p>
+  <img src="./docs/images/messages-en.png" alt="Messages" width="260">
+  <img src="./docs/images/status-en.png" alt="Status" width="260">
+  <img src="./docs/images/messages-dark.png" alt="Dark appearance" width="260">
+</p>
+
 ## Features
 
 - **Several SIMs at once**: one USB modem per SIM, and modems can be plugged in or pulled out while Mailroom runs.

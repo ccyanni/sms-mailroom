@@ -19,7 +19,7 @@
     .detail { padding: 0 14px 12px; display: grid; gap: 10px; }
     .code { display: flex; align-items: center; gap: 10px; background: var(--accent-soft); border-radius: 8px; padding: 6px 6px 6px 12px; }
     .code b { font: 600 1.25rem/1.2 var(--mono); letter-spacing: 0.12em; color: var(--accent); }
-    .code span { font-size: 0.78rem; color: var(--muted); }
+    .code span { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
     .code button { margin-left: auto; }
     .meta { font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
@@ -85,7 +85,7 @@
           </summary>
           <div class="detail">
             {% if m.code %}
-            <div class="code"><span>{{ t.code }}</span><b>{{ m.code }}</b><button type="button" class="btn" data-copy="{{ m.code }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="10" height="11" rx="1.5"/><path d="M15 9V6a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3"/></svg>{{ t.copy }}</button></div>
+            <div class="code"><span>{{ t.code }}</span><b>{{ m.code }}</b><button type="button" class="btn" data-copy="{{ m.code }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="10" height="11" rx="1.5"/><path d="M15 9V6a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3"/></svg>{{ t.copy_code }}</button></div>
             {% endif %}
             <div class="meta">{{ t.received }} <time>{{ m.time }}</time> · <span class="forwarding">{{ m.forwarding }}</span></div>
             <div class="actions">

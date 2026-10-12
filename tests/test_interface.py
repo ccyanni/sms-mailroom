@@ -304,3 +304,20 @@ def test_time_since_a_message_is_said_plainly(minutes, english, chinese):
     assert i18n.relative_time("en", now - timedelta(minutes=minutes), now) == english
     assert i18n.relative_time("zh", now - timedelta(minutes=minutes), now) == chinese
     assert i18n.relative_time("zh", now - timedelta(days=5), now) == "10/7"
+
+
+def test_no_string_is_named_like_something_a_template_would_find_on_the_table_itself():
+    # In a template, `t.copy` finds dict.copy before the string called "copy".
+    from mailroom import i18n
+
+    assert [key for key in i18n.strings("en") if hasattr(dict, key)] == []
+
+
+def test_copy_button_is_labelled(modem, mailroom):
+    with mailroom() as page:
+        modem.deliver(build_pdu("Bank", "Your code is 482913"))
+        wait_for(lambda: texts(page))
+        html, status = page.get("/").text, page.get("/status").text
+
+    assert re.search(r'data-copy="482913">.*?</svg>Copy</button>', html, flags=re.S)
+    assert "built-in method" not in html and "built-in method" not in status

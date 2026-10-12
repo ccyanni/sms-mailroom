@@ -107,7 +107,7 @@ Almost all of the code, tests and documentation in this project were written by 
 
 What has been verified in practice: on one Mac mini, two A7672G modems with a Taiwan Mobile SIM and a roaming China Mobile SIM, receiving SMS, forwarding to Telegram, and signing in to the page through Cloudflare Access. The automated tests use a simulated modem and need no hardware.
 
-This program handles verification codes. Review the code yourself before deploying it, in particular the access check in `src/mailroom/access.py`.
+This program handles verification codes. Review the code yourself before deploying it, in particular the three places that decide who gets in: `src/mailroom/access.py` (verifying the Cloudflare Access token), the middleware in `src/mailroom/web.py` that applies the check, and the settings in `src/mailroom/config.py` and `src/mailroom/__main__.py` that decide whether the check is on (`allow_unauthenticated`).
 
 ## License
 

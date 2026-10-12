@@ -107,7 +107,7 @@ macOS 沒有這款模組的驅動程式，所以不會出現序列埠。Mailroom
 
 實際驗證過的範圍：在一台 Mac mini 上，以兩片 A7672G 模組搭配台灣大哥大和中國移動（漫遊）的 SIM 卡收簡訊、轉發到 Telegram，並透過 Cloudflare Access 登入網頁。自動化測試使用模擬的模組，不需要硬體。
 
-這個程式會經手驗證碼簡訊。部署之前，請自行審閱程式碼，尤其是 `src/mailroom/access.py` 的存取驗證。
+這個程式會經手驗證碼簡訊。部署之前，請自行審閱程式碼，尤其是跟存取控制有關的三處：`src/mailroom/access.py`（驗證 Cloudflare Access 憑證）、`src/mailroom/web.py` 裡套用檢查的中介層，以及 `src/mailroom/config.py` 和 `src/mailroom/__main__.py` 裡決定是否啟用檢查的設定（`allow_unauthenticated`）。
 
 ## 授權
 

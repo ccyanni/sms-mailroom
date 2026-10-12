@@ -124,20 +124,38 @@ class Store:
         with self._lock, self._db:
             return self._add(iccid, pdu, delivery, datetime.now(timezone.utc))
 
-    def list_messages(self, incomplete_received_before: datetime | None = None) -> list[StoredMessage]:
-        """Messages, newest first.
+    def list_messages(
+        self,
+        incomplete_received_before: datetime | None = None,
+        sim_iccid: str | None = None,
+        search: str | None = None,
+    ) -> list[StoredMessage]:
+        """Messages, newest first, optionally only one SIM's and only those containing `search`.
 
         A Message still missing Parts is left out until it has waited since
         `incomplete_received_before`, so that Parts in transit are not shown as a broken Message.
         """
         cutoff = (incomplete_received_before or datetime.max.replace(tzinfo=timezone.utc)).isoformat()
+        where, values = ["(m.complete OR m.received_at <= ?)"], [cutoff]
+        if sim_iccid:
+            where.append("m.sim_iccid = ?")
+            values.append(sim_iccid)
+        if search:
+            pattern = "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            where.append("(m.text LIKE ? ESCAPE '\\' OR m.sender LIKE ? ESCAPE '\\')")
+            values += [pattern, pattern]
         with self._lock:
             rows = self._db.execute(
-                _SELECT_MESSAGE + "WHERE m.complete OR m.received_at <= ? "
-                "ORDER BY m.sent_at DESC, m.id DESC",
-                (cutoff,),
+                _SELECT_MESSAGE + "WHERE " + " AND ".join(where) + " ORDER BY m.sent_at DESC, m.id DESC",
+                values,
             ).fetchall()
         return [_stored(row) for row in rows]
+
+    def delete_message(self, message_id: int) -> None:
+        """Remove a Message and its Parts for good."""
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM parts WHERE message_id = ?", (message_id,))
+            self._db.execute("DELETE FROM messages WHERE id = ?", (message_id,))
 
     def awaiting_forwarding(self, incomplete_received_before: datetime) -> list[StoredMessage]:
         """Messages owed to Telegram, oldest first.

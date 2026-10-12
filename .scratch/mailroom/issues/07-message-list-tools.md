@@ -4,10 +4,10 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The list can be filtered to one SIM
-- [ ] Message text can be searched, including Chinese text
-- [ ] A single Message can be deleted, and deletion is permanent
-- [ ] New Messages appear within a few seconds without a manual reload, and the refresh keeps the current filter and search
-- [ ] The page is readable and operable on a phone-width screen with no horizontal scrolling
+- [x] The list can be filtered to one SIM
+- [x] Message text can be searched, including Chinese text
+- [x] A single Message can be deleted, and deletion is permanent
+- [x] New Messages appear within a few seconds without a manual reload, and the refresh keeps the current filter and search
+- [x] The page is readable and operable on a phone-width screen with no horizontal scrolling

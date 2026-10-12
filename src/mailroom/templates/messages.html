@@ -5,65 +5,106 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mailroom</title>
   <style>
+    * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; margin: 0 auto; max-width: 44rem; padding: 1rem; }
     h1 { font-size: 1.25rem; }
     h2 { font-size: 1rem; margin: 1.5rem 0 0.25rem; }
     ul { list-style: none; padding: 0; margin: 0; }
     li { border-bottom: 1px solid #ddd; padding: 0.75rem 0; }
     form { display: inline; }
-    input[type=text] { font: inherit; padding: 0.2rem 0.4rem; max-width: 100%; box-sizing: border-box; }
-    button { font: inherit; padding: 0.2rem 0.6rem; }
+    input[type=text], input[type=search], select { font: inherit; padding: 0.3rem 0.4rem; max-width: 100%; }
+    button { font: inherit; padding: 0.3rem 0.7rem; }
+    .filter { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
+    .filter input[type=search] { flex: 1 1 10rem; min-width: 0; }
     .meta { color: #666; font-size: 0.85rem; overflow-wrap: anywhere; }
     .incomplete, .off { color: #b45309; }
-    .text { margin: 0.25rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .text { margin: 0.25rem 0 0.4rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .delete button { font-size: 0.8rem; color: #b91c1c; background: none; border: 1px solid #e5b4b4; border-radius: 4px; }
   </style>
 </head>
 <body>
   <h1>Mailroom</h1>
-  <p class="meta">
-    {% if modems %}Modems:
-    {% for m in modems %}<span class="modem">{{ m.imei }} ({{ m.state }})</span>{% if not loop.last %}, {% endif %}{% endfor %}
-    {% else %}No Modems attached.{% endif %}
-  </p>
+  <div id="live">
+    <p class="meta">
+      {% if modems %}Modems:
+      {% for m in modems %}<span class="modem">{{ m.imei }} ({{ m.state }})</span>{% if not loop.last %}, {% endif %}{% endfor %}
+      {% else %}No Modems attached.{% endif %}
+    </p>
 
-  {% if sims %}
-  <h2>SIMs</h2>
-  <ul>
-    {% for s in sims %}
-    <li class="sim">
-      <form method="post" action="/sims/{{ s.iccid }}/label">
-        <input type="text" name="label" value="{{ s.label }}" maxlength="60" aria-label="SIM label">
-        <button>Rename</button>
-      </form>
-      <div class="meta">
-        <span class="number">{{ s.number }}</span> ·
-        <span class="operator">{{ s.operator }}</span> ·
-        signal <span class="signal">{{ s.signal }}</span> ·
-        <span class="registration">{{ s.registration }}</span> ·
-        last Message <span class="last">{{ s.last }}</span>
-      </div>
-      <form method="post" action="/sims/{{ s.iccid }}/forwarding">
-        <input type="hidden" name="enabled" value="{{ 0 if s.forwarding else 1 }}">
-        <span class="forwarding-setting{{ '' if s.forwarding else ' off' }}">Forwarding {{ 'on' if s.forwarding else 'off' }}</span>
-        <button>Turn {{ 'off' if s.forwarding else 'on' }}</button>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
+    {% if sims %}
+    <h2>SIMs</h2>
+    <ul>
+      {% for s in sims %}
+      <li class="sim">
+        <form method="post" action="/sims/{{ s.iccid }}/label">
+          <input type="text" name="label" value="{{ s.label }}" maxlength="60" aria-label="SIM label">
+          <button>Rename</button>
+        </form>
+        <div class="meta">
+          <span class="number">{{ s.number }}</span> ·
+          <span class="operator">{{ s.operator }}</span> ·
+          signal <span class="signal">{{ s.signal }}</span> ·
+          <span class="registration">{{ s.registration }}</span> ·
+          last Message <span class="last">{{ s.last }}</span>
+        </div>
+        <form method="post" action="/sims/{{ s.iccid }}/forwarding">
+          <input type="hidden" name="enabled" value="{{ 0 if s.forwarding else 1 }}">
+          <span class="forwarding-setting{{ '' if s.forwarding else ' off' }}">Forwarding {{ 'on' if s.forwarding else 'off' }}</span>
+          <button>Turn {{ 'off' if s.forwarding else 'on' }}</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
 
   <h2>Messages</h2>
-  {% if messages %}
-  <ul>
-    {% for m in messages %}
-    <li class="message">
-      <div class="meta"><span class="sim-label">{{ m.sim }}</span> · <span class="sender">{{ m.sender }}</span> · <time>{{ m.time }}</time>{% if not m.complete %} · <span class="incomplete">incomplete</span>{% endif %} · <span class="forwarding">{{ m.forwarding }}</span></div>
-      <p class="text">{{ m.text }}</p>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="meta">No Messages yet.</p>
-  {% endif %}
+  <form class="filter" method="get" action="/">
+    <select name="sim" aria-label="SIM">
+      <option value="">All SIMs</option>
+      {% for s in sims %}<option value="{{ s.iccid }}"{% if s.iccid == sim %} selected{% endif %}>{{ s.label }}</option>
+      {% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ search }}" placeholder="Search" aria-label="Search Messages">
+    <button>Show</button>
+  </form>
+
+  <div id="messages">
+    {% if messages %}
+    <ul>
+      {% for m in messages %}
+      <li class="message">
+        <div class="meta"><span class="sim-label">{{ m.sim }}</span> · <span class="sender">{{ m.sender }}</span> · <time>{{ m.time }}</time>{% if not m.complete %} · <span class="incomplete">incomplete</span>{% endif %} · <span class="forwarding">{{ m.forwarding }}</span></div>
+        <p class="text">{{ m.text }}</p>
+        <form class="delete" method="post" action="/messages/{{ m.id }}/delete" onsubmit="return confirm('Delete this Message for good?')">
+          <button>Delete</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="meta">{% if sim or search %}No Messages match.{% else %}No Messages yet.{% endif %}</p>
+    {% endif %}
+  </div>
+
+  <script>
+    // Refresh the live parts of the page from the same URL, so the filter and search stay as they are.
+    const REFRESH_MS = 5000;
+    async function refresh() {
+      if (document.hidden) return;
+      try {
+        const response = await fetch(location.href, { headers: { "X-Mailroom-Refresh": "1" } });
+        if (!response.ok) return;
+        const fresh = new DOMParser().parseFromString(await response.text(), "text/html");
+        for (const id of ["live", "messages"]) {
+          const current = document.getElementById(id);
+          // Leave a section alone while the owner is typing in it.
+          if (current.contains(document.activeElement) && document.activeElement.tagName === "INPUT") continue;
+          current.innerHTML = fresh.getElementById(id).innerHTML;
+        }
+      } catch (error) { /* offline: try again next time */ }
+    }
+    setInterval(refresh, REFRESH_MS);
+  </script>
 </body>
 </html>

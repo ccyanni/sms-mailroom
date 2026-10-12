@@ -55,9 +55,11 @@ def create_app(
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.get("/", response_class=HTMLResponse)
-    def messages(request: Request):
+    def messages(request: Request, sim: str = "", q: str = ""):
+        search = q.strip()
         rows = [
             {
+                "id": m.id,
                 "sim": m.sim_label,
                 "sender": m.sender,
                 "text": m.text,
@@ -66,31 +68,40 @@ def create_app(
                 "forwarding": _FORWARD_LABELS[m.forward_state],
             }
             for m in store.list_messages(
-                incomplete_received_before=datetime.now(timezone.utc) - timedelta(seconds=part_timeout)
+                incomplete_received_before=datetime.now(timezone.utc) - timedelta(seconds=part_timeout),
+                sim_iccid=sim or None,
+                search=search or None,
             )
         ]
         attached = service.modems()
         in_modem = {m.iccid: m for m in attached if m.iccid}
         sims = []
-        for sim in store.list_sims():
-            modem = in_modem.get(sim.iccid)
+        for stored in store.list_sims():
+            modem = in_modem.get(stored.iccid)
             network = modem.network if modem else None
             sims.append(
                 {
-                    "iccid": sim.iccid,
-                    "label": sim.label,
-                    "number": sim.number or "number unknown",
-                    "forwarding": sim.forwarding,
+                    "iccid": stored.iccid,
+                    "label": stored.label,
+                    "number": stored.number or "number unknown",
+                    "forwarding": stored.forwarding,
                     "operator": (network and network.operator) or "–",
                     "signal": f"{network.signal}/31" if network and network.signal is not None else "–",
                     "registration": network.registration if network else "not in a Modem",
-                    "last": _taipei(sim.last_message_at) if sim.last_message_at else "never",
+                    "last": _taipei(stored.last_message_at) if stored.last_message_at else "never",
                 }
             )
         modems = [{"imei": m.imei or "unidentified", "state": m.state} for m in attached]
         return _templates.TemplateResponse(
-            request, "messages.html", {"messages": rows, "modems": modems, "sims": sims}
+            request,
+            "messages.html",
+            {"messages": rows, "modems": modems, "sims": sims, "sim": sim, "search": search},
         )
+
+    @app.post("/messages/{message_id}/delete")
+    def delete_message(message_id: int, request: Request):
+        store.delete_message(message_id)
+        return _back(request)
 
     @app.post("/sims/{iccid}/label")
     async def rename_sim(iccid: str, request: Request):

@@ -66,6 +66,9 @@ class Receiver:
             try:
                 indication = self._link.wait_indication(timeout=0.2)
                 new_message = indication is not None and indication.startswith("+CMTI")
+                if indication is not None and not new_message:
+                    # What the Modem says about the network, kept to set beside link errors when hunting their cause.
+                    log.info("Modem %s reported %s", self._imei or "unknown", indication)
                 if new_message or time.monotonic() - last_collect >= self._poll_interval:
                     last_collect = time.monotonic()
                     self.collect()
@@ -119,6 +122,11 @@ class Receiver:
                 self._link.command("AT+DIALMODE=1")
             except ATError:
                 log.warning("Modem %s does not accept AT+DIALMODE=1", self._imei)
+            for report in ("AT+CGEREP=2,0", "AT+CEREG=2"):  # say when the data connection or the cell changes
+                try:
+                    self._link.command(report)
+                except ATError:
+                    pass
             try:
                 number = _first_match(_CNUM, self._link.command("AT+CNUM")) or None
             except ATError:

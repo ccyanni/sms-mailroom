@@ -1,5 +1,6 @@
 """Messages delivered by a Modem are stored and shown on the web page."""
 
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -172,3 +173,19 @@ def test_same_text_sent_again_later_is_a_new_message(modem, mailroom):
             modem.deliver(build_pdu("12345", "ok", sent_at=datetime(2026, 5, 1, 9, minute, tzinfo=taipei)))
 
         wait_for(lambda: len(shown_messages(page)) == 2)
+
+
+def test_what_a_modem_reports_about_the_network_is_logged(modem, mailroom, caplog):
+    with caplog.at_level(logging.INFO), mailroom():
+        wait_for(lambda: "AT+CEREG=2" in modem.settings and "AT+CGEREP=2,0" in modem.settings)
+        modem.report("+CGEV: NW PDN DEACT 2")
+
+        wait_for(lambda: "Modem 860000000000001 reported +CGEV: NW PDN DEACT 2" in caplog.text)
+
+
+def test_new_message_indication_is_not_logged_as_a_report(modem, mailroom, caplog):
+    with caplog.at_level(logging.INFO), mailroom() as page:
+        modem.deliver(build_pdu("0912345678", "hello"))
+        wait_for(lambda: shown_messages(page))
+
+    assert "reported" not in caplog.text

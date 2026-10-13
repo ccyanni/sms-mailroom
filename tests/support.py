@@ -43,6 +43,10 @@ class FakeModem:
         if announce:
             self._indications.put(f'+CMTI: "SM",{index}')
 
+    def report(self, indication: str) -> None:
+        """Simulate the Modem saying something of its own accord."""
+        self._indications.put(indication)
+
     def command(self, text: str) -> list[str]:
         if not self.attached:
             raise LinkLost("Modem is unplugged")
@@ -50,7 +54,7 @@ class FakeModem:
             return [self.imei]
         if not self.sim_present:
             raise ATError(f"{text}: +CME ERROR: SIM not inserted")
-        if text in ("AT+CMGF=0", "AT+CNMI=2,1,0,0,0", "AT+CATR=3", "AT+COPS=3,0", "AT+DIALMODE=1"):
+        if text in ("AT+CMGF=0", "AT+CNMI=2,1,0,0,0", "AT+CATR=3", "AT+COPS=3,0", "AT+DIALMODE=1", "AT+CGEREP=2,0", "AT+CEREG=2"):
             self.settings.append(text)
             return []
         if text == "AT+CPMS?":

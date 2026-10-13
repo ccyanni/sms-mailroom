@@ -126,7 +126,7 @@ class Receiver:
                 try:
                     self._link.command(report)
                 except ATError:
-                    pass
+                    log.warning("Modem %s does not accept %s", self._imei, report)
             try:
                 number = _first_match(_CNUM, self._link.command("AT+CNUM")) or None
             except ATError:

@@ -60,6 +60,8 @@ Messages received after that backup are not in it; they are still in the Telegra
 - **A wrong or missing number:** the number is read from the SIM, and some SIMs carry none or a wrong one. Under Status, **Edit** on that SIM takes the right number; saving it blank goes back to what the SIM reports. The number is only displayed and has no effect on receiving.
 - **Adding a Modem:** just plug it in; SMS Mailroom picks it up within a few seconds.
 - **USB hub:** power it from its own 5 V supply. A Modem that keeps dropping off the bus raises a "keeps disconnecting" Alert; check the hub, its power supply and the cable, or plug the Modem straight into the Mac.
+- **A Modem that is plugged in but never shows up:** try another port; if that fails too, unplug both the hub's power supply and its cable to the Mac, wait a few seconds and reconnect them. A hub can occasionally hang as a whole, and replugging the Modem does not bring it back.
+- **Modems in each other's way:** a Modem board is wider than a USB port, so neighbouring ports can be blocked. A short USB extension cable moves one out of the way.
 
 ## Settings
 

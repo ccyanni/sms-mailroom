@@ -20,4 +20,5 @@ Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/age
 - Settings live outside the repository in `~/Library/Application Support/Mailroom/config.toml` (override with `MAILROOM_CONFIG`). Without a `[telegram]` table (`token`, `chat_id`), Messages are stored but not forwarded.
 - Optional settings in `config.toml`: `[alerts] after_minutes` (default 3) is how long a problem must last before an Alert is sent.
 - The web page answers 403 to everything unless `config.toml` has `[access]` with `team_domain` and `audience` (Cloudflare Access), or `allow_unauthenticated = true` for local development.
+- Retake the README screenshots from invented sample data: `scripts/screenshots.sh` (needs Google Chrome, about three minutes; pass a directory to write them somewhere other than `docs/images/`). The sample Modems and Messages are in `scripts/screenshot_server.py`.
 - Every string shown to the owner lives in `src/mailroom/i18n.py`, in Traditional Chinese and English. Add both when adding one; tests read the page in English (`tests/conftest.py`).

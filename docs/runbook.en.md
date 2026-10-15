@@ -61,7 +61,7 @@ Messages received after that backup are not in it; they are still in the Telegra
 - **A wrong or missing number:** the number is read from the SIM, and some SIMs carry none or a wrong one. Under Status, **Edit** on that SIM takes the right number; saving it blank goes back to what the SIM reports. The number is only displayed and has no effect on receiving.
 - **A SIM no longer used:** once taken out, it stays on the Status page as "not in a Modem" and keeps an Alert open. Under Status, **Edit** on that SIM, then **Forget this SIM**: it leaves the Status page and the SIM filter, and its Alert goes away without a "resolved" notice. Its Messages are kept and can still be searched. Put the same SIM into a Modem again and it comes back with its label, number and Forwarding setting. A SIM that is in a Modem cannot be forgotten.
 - **Adding a Modem:** just plug it in; SMS Mailroom picks it up within a few seconds.
-- **USB hub:** power it from its own 5 V supply. A Modem that keeps dropping off the bus raises a "keeps disconnecting" Alert; check the hub, its power supply and the cable, or plug the Modem straight into the Mac.
+- **USB hub:** power it from its own 5 V supply, with enough to spare. Short of power, Modems first report read errors again and again, then drop off the bus. If the supply is a multi-port charger, check the power table in its manual: some chargers cut one port's power sharply once something is plugged into another. A Modem that keeps dropping off the bus raises a "keeps disconnecting" Alert; check the hub, its power supply and the cable, or plug the Modem straight into the Mac.
 - **A Modem that is plugged in but never shows up:** try another port; if that fails too, unplug both the hub's power supply and its cable to the Mac, wait a few seconds and reconnect them. A hub can occasionally hang as a whole, and replugging the Modem does not bring it back.
 - **Modems in each other's way:** a Modem board is wider than a USB port, so neighbouring ports can be blocked. A short USB extension cable moves one out of the way.
 
@@ -102,6 +102,6 @@ Without `[telegram]`, Messages are stored but not forwarded. Without `[access]`,
 
 ## Known behaviour
 
-- A Modem occasionally reports a read error; SMS Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub.
+- A Modem occasionally reports a read error; SMS Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub or its power supply.
 - Roaming SIMs sometimes deliver an SMS minutes late, or twice. A repeat with the same sender, network time and text is stored once.
 - A Message deleted on the page is gone for good.

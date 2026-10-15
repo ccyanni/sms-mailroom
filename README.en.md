@@ -33,7 +33,7 @@ The numbers, modems and messages shown are sample data.
 |---|---|
 | Computer | A Mac that stays on (developed and tested on Apple Silicon, macOS 27) |
 | Modems | SIMCom **A7672G** USB modems, one per SIM. Other A76XX modules may work but are untested |
-| USB hub | For more than one modem; give it its own power supply |
+| USB hub | For more than one modem; give it its own power supply, with enough to spare: an underpowered hub makes modems report read errors and drop off |
 | Telegram bot | Receives the forwarded messages; create one with [@BotFather](https://t.me/BotFather) |
 | Cloudflare account | With a domain on Cloudflare, for remote access through a Tunnel and Access |
 | Software | [uv](https://docs.astral.sh/uv/), which installs the right Python for you |
@@ -122,7 +122,7 @@ The program is a single Python process: one thread per modem receives messages, 
 
 - Tested only on macOS with the A7672G. Linux has a ready-made serial driver for these modems, but this project's USB layer was written for the macOS situation.
 - A roaming SIM sometimes receives an SMS minutes late; that is the network's doing.
-- A modem occasionally reports a read error, which is retried automatically; the cause is not yet known.
+- A modem occasionally reports a read error, which is retried automatically. The likely cause is an underpowered USB hub: since its power supply was replaced, none have been seen.
 - Messages are stored unencrypted in the local SQLite database.
 - With FileVault on, the Mac waits for a password at the machine after a reboot or a power cut, and receives nothing until someone types it. See the runbook.
 
@@ -136,7 +136,7 @@ Not built yet, and may be added later:
 
 Almost all of the code, tests and documentation in this project were written by an AI (Anthropic's Claude) under the author's direction. The author supplied the requirements, made the design decisions, handled the hardware and verified the result on it.
 
-What has been verified in practice: on one Mac mini, two A7672G modems with a Taiwan Mobile SIM and a roaming China Mobile SIM, receiving SMS, forwarding to Telegram, and signing in to the page through Cloudflare Access. The automated tests use a simulated modem and need no hardware.
+What has been verified in practice: on one Mac mini, three A7672G modems with a Taiwan Mobile SIM, a Far EasTone SIM and a roaming China Mobile SIM, receiving SMS, forwarding to Telegram, and signing in to the page through Cloudflare Access; and, with FileVault off, a reboot after which the service was receiving again before anyone had typed a password. The automated tests use a simulated modem and need no hardware.
 
 This program handles verification codes. Review the code yourself before deploying it, in particular the three places that decide who gets in: `src/mailroom/access.py` (verifying the Cloudflare Access token), the middleware in `src/mailroom/web.py` that applies the check, and the settings in `src/mailroom/config.py` and `src/mailroom/__main__.py` that decide whether the check is on (`allow_unauthenticated`).
 

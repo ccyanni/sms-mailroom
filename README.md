@@ -33,7 +33,7 @@ SMS Mailroom 讓一台不關機的 Mac 替你收簡訊。把 SIM 卡插在 USB 4
 |---|---|
 | 電腦 | 一台持續開機的 Mac（在 Apple Silicon、macOS 27 上開發與測試） |
 | 模組 | SIMCom **A7672G** USB 模組，每張 SIM 一片。其他 A76XX 系列可能可用，但沒有測試過 |
-| USB 集線器 | 接多片模組時使用，請接上獨立電源 |
+| USB 集線器 | 接多片模組時使用，請接上獨立而且功率足夠的電源；供電不足時，模組會出現讀取錯誤或掉線 |
 | Telegram 機器人 | 用來接收轉發的簡訊，向 [@BotFather](https://t.me/BotFather) 申請 |
 | Cloudflare 帳號 | 需要一個託管在 Cloudflare 的網域，用 Tunnel 和 Access 提供遠端存取 |
 | 軟體 | [uv](https://docs.astral.sh/uv/)（會自動安裝所需的 Python） |
@@ -122,7 +122,7 @@ macOS 沒有這款模組的驅動程式，所以不會出現序列埠。SMS Mail
 
 - 只在 macOS 和 A7672G 上測試過。Linux 有現成的序列埠驅動程式，但這個專案的 USB 層是針對 macOS 的情況寫的。
 - 漫遊中的 SIM 有時會晚幾分鐘才收到簡訊，這是電信網路的行為。
-- 模組偶爾會回報讀取錯誤，程式會自動重試；原因還不清楚。
+- 模組偶爾會回報讀取錯誤，程式會自動重試。目前看來，原因多半是 USB 集線器供電不足：換了電源之後，到現在都沒有再出現。
 - 簡訊內容以明文存在本機的 SQLite 資料庫裡。
 - Mac 如果開啟了 FileVault，重開機或停電後要有人在現場輸入密碼才會繼續開機，在那之前不會收簡訊。詳見操作手冊。
 
@@ -136,7 +136,7 @@ macOS 沒有這款模組的驅動程式，所以不會出現序列埠。SMS Mail
 
 這個專案的程式碼、測試和文件，絕大部分是由 AI（Anthropic 的 Claude）在作者的指示下撰寫的。作者負責需求、設計決定、硬體操作和實機驗證。
 
-實際驗證過的範圍：在一台 Mac mini 上，以兩片 A7672G 模組搭配台灣大哥大和中國移動（漫遊）的 SIM 卡收簡訊、轉發到 Telegram，並透過 Cloudflare Access 登入網頁。自動化測試使用模擬的模組，不需要硬體。
+實際驗證過的範圍：在一台 Mac mini 上，以三片 A7672G 模組搭配台灣大哥大、遠傳和中國移動（漫遊）的 SIM 卡收簡訊、轉發到 Telegram，並透過 Cloudflare Access 登入網頁；也實測過在關閉 FileVault 的情況下重新開機，不必有人輸入密碼，服務就會自己恢復收簡訊。自動化測試使用模擬的模組，不需要硬體。
 
 這個程式會經手驗證碼簡訊。部署之前，請自行審閱程式碼，尤其是跟存取控制有關的三處：`src/mailroom/access.py`（驗證 Cloudflare Access 憑證）、`src/mailroom/web.py` 裡套用檢查的中介層，以及 `src/mailroom/config.py` 和 `src/mailroom/__main__.py` 裡決定是否啟用檢查的設定（`allow_unauthenticated`）。
 

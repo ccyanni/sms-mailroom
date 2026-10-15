@@ -24,10 +24,12 @@ _CEREG = re.compile(r"\+CEREG:\s*\d+,(\d+)")
 _COPS = re.compile(r'\+COPS:\s*\d+,\d+,"([^"]*)"')
 _CPMS = re.compile(r'\+CPMS:\s*"\w+",(\d+),(\d+)')
 
-RECEIVING = "receiving"
+RECEIVING, STARTING = "receiving", "starting"
 HOME, ROAMING, NOT_REGISTERED = "home", "roaming", "not registered"
 _REGISTRATION = {"1": HOME, "5": ROAMING}
 _MAX_SIGNAL = 31
+_SIM_READY_WITHIN = 60.0  # seconds a freshly attached Modem may take before its SIM answers
+_SIM_RETRY = 2.0
 
 
 @dataclass(frozen=True)
@@ -48,7 +50,7 @@ class Receiver:
         self._poll_interval = poll_interval
         self._imei: str | None = None
         self._iccid: str | None = None
-        self.state = "starting"
+        self.state = STARTING
         self.network = NetworkStatus()
 
     @property
@@ -61,7 +63,9 @@ class Receiver:
 
     def run(self, stop: threading.Event) -> None:
         """Collect Messages until `stop` is set: on every indication, and on a timer as a safety net."""
-        last_collect = float("-inf")
+        started = time.monotonic()
+        next_collect = started
+        told_waiting = False
         while not stop.is_set():
             try:
                 indication = self._link.wait_indication(timeout=0.2)
@@ -69,8 +73,8 @@ class Receiver:
                 if indication is not None and not new_message:
                     # What the Modem says about the network, kept to set beside link errors when hunting their cause.
                     log.info("Modem %s reported %s", self._imei or "unknown", indication)
-                if new_message or time.monotonic() - last_collect >= self._poll_interval:
-                    last_collect = time.monotonic()
+                if new_message or time.monotonic() >= next_collect:
+                    next_collect = time.monotonic() + self._poll_interval
                     self.collect()
                     self.network = self._network_status()
                     self._report(RECEIVING)
@@ -80,7 +84,14 @@ class Receiver:
             except ATError as exc:
                 self._iccid = None  # identify the SIM afresh once it is readable again
                 self.network = NetworkStatus()
-                self._report(f"cannot receive: {exc}")
+                if self.state == STARTING and time.monotonic() - started < _SIM_READY_WITHIN:
+                    # A Modem answers as soon as it is plugged in, but its SIM takes a while longer: ask again soon.
+                    if not told_waiting:
+                        told_waiting = True
+                        log.info("Modem %s: waiting for its SIM (%s)", self._imei or "unknown", exc)
+                    next_collect = min(next_collect, time.monotonic() + min(self._poll_interval, _SIM_RETRY))
+                else:
+                    self._report(f"cannot receive: {exc}")
 
     def collect(self) -> None:
         """Move every Message on the SIM into the store, deleting each only once it is stored."""

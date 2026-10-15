@@ -152,6 +152,25 @@ def test_modem_starts_receiving_once_its_sim_becomes_readable(modem, mailroom):
         assert wait_for(lambda: shown_messages(page)) == ["after the SIM was seated"]
 
 
+def test_freshly_attached_modem_waits_quietly_for_its_sim(modem, mailroom, caplog):
+    modem.sim_present = False
+    with caplog.at_level(logging.INFO), mailroom() as page:
+        wait_for(lambda: "waiting for its SIM" in caplog.text)
+        assert "(starting)" in page.get("/status").text
+        modem.deliver(build_pdu("111", "once the SIM was ready"), announce=False)
+        modem.sim_present = True
+
+        assert wait_for(lambda: shown_messages(page)) == ["once the SIM was ready"]
+    assert "cannot receive" not in caplog.text
+
+
+def test_sim_that_never_answers_is_reported(modem, mailroom, monkeypatch):
+    monkeypatch.setattr("mailroom.receiver._SIM_READY_WITHIN", 0.5)
+    modem.sim_present = False
+    with mailroom() as page:
+        assert wait_for(lambda: "cannot receive: AT+CICCID: +CME ERROR: SIM not inserted" in page.get("/status").text)
+
+
 def test_same_sms_delivered_twice_through_different_service_centres_is_stored_once(modem, mailroom):
     # Captured from China Mobile: two deliveries eleven bytes apart only in the service centre address.
     first = build_pdu("10086910", "验证码 662022")

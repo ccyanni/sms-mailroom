@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import threading
 from dataclasses import dataclass
@@ -106,6 +107,7 @@ class StoredAlert:
 class Store:
     def __init__(self, path: Path | str) -> None:
         self._db = sqlite3.connect(path, check_same_thread=False)
+        self._db.create_function("same_number", 2, _same_number, deterministic=True)
         os.chmod(path, 0o600)  # Messages are stored in plain text
         self._lock = threading.Lock()
         with self._lock, self._db:
@@ -391,9 +393,25 @@ def _filter(
         values.append(sim_iccid)
     if search:
         pattern = "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-        where.append("(m.text LIKE ? ESCAPE '\\' OR m.sender LIKE ? ESCAPE '\\')")
-        values += [pattern, pattern]
+        where.append("(m.text LIKE ? ESCAPE '\\' OR m.sender LIKE ? ESCAPE '\\' OR same_number(m.sender, ?))")
+        values += [pattern, pattern, search]
     return " AND ".join(where), values
+
+
+_PHONE_NUMBER = re.compile(r"\+?[\d\s().-]+")
+_SHORTEST_NUMBER = 7  # digits; anything shorter is a short code, matched as plain text only
+
+
+def _same_number(sender: str, search: str) -> bool:
+    """Whether a search names the sender's line however either is written: 0933…, +886933… and 00886933… all do.
+
+    The digits are compared from the end, so a leading 0, a + or 00 and the country code make no difference.
+    """
+    if not (_PHONE_NUMBER.fullmatch(sender) and _PHONE_NUMBER.fullmatch(search)):
+        return False
+    sender_digits, search_digits = (re.sub(r"\D", "", n).lstrip("0") for n in (sender, search))
+    shorter, longer = sorted((sender_digits, search_digits), key=len)
+    return len(shorter) >= _SHORTEST_NUMBER and longer.endswith(shorter)
 
 
 _SELECT_MESSAGE = (

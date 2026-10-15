@@ -78,6 +78,17 @@ def test_messages_can_be_searched(page, search, expected):
     assert sorted(shown(page, q=search)) == expected
 
 
+def test_a_sender_is_found_however_the_number_is_written(modems, page):
+    taiwan, _ = modems
+    taiwan.deliver(build_pdu("00886912345678", "從國外轉來的"))  # the same phone, as a roaming SIM sees it
+    wait_for(lambda: len(shown(page)) == 5)
+
+    for search in ("0912345678", "+886912345678", "00886912345678", "0912-345-678", "912 345 678"):
+        assert set(shown(page, q=search)) == {"晚餐吃什麼", "從國外轉來的"}, search
+    assert shown(page, q="+886900000000") == []
+    assert shown(page, q="+86 10086") == []  # a short code is matched as plain text only
+
+
 def test_search_and_sim_filter_combine(page):
     assert shown(page, sim=TAIWAN, q="10086") == []
     assert shown(page, sim=CHINA, q="504126") == ["验证码 504126，请勿泄露"]

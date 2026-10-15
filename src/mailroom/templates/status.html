@@ -31,6 +31,10 @@
     .rename[open] > summary { display: none; }
     .rename form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
     .rename label { flex: 1 1 140px; min-width: 0; display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+    .rename .confirm { margin-top: 10px; }
+    .confirm[open] { background: var(--danger-soft); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; font-size: 0.9rem; }
+    .confirm[open] > summary { display: none; }
+    .confirm .btn { justify-self: start; }
     .rename input { width: 100%; min-height: 44px; font-size: 1rem; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 0 10px; }
     .rows { display: grid; gap: 10px; }
     .rows li { display: grid; grid-template-columns: 10px 1fr; column-gap: 10px; align-items: baseline; font-size: 0.9rem; }
@@ -71,6 +75,13 @@
               <label>{{ t.sim_number }}<input type="tel" name="number" value="{{ s.number_value }}" maxlength="20"></label>
               <button class="btn primary">{{ t.save }}</button>
             </form>
+            {% if not s.modem %}
+            <details class="confirm">
+              <summary class="btn danger">{{ t.forget_sim }}</summary>
+              <span>{{ t.forget_warning }}</span>
+              <form method="post" action="/sims/{{ s.iccid }}/forget"><button class="btn solid-danger">{{ t.forget_confirm }}</button></form>
+            </details>
+            {% endif %}
           </details>
         </div>
       </li>

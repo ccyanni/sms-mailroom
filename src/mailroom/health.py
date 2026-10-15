@@ -111,7 +111,8 @@ class HealthMonitor:
 
         attached = self._service.modems()
         by_iccid = {modem.iccid: modem for modem in attached if modem.iccid}
-        for sim in self._store.list_sims():
+        sims = self._store.list_sims()
+        for sim in sims:
             modem = by_iccid.get(sim.iccid)
             if modem is None:
                 problems[f"sim:{sim.iccid}"] = ("sim_absent", {"label": sim.label}, self._alert_after)
@@ -148,9 +149,11 @@ class HealthMonitor:
 
         for key, (kind, values, grace) in problems.items():
             self._raise(known.get(key) or StoredAlert(key, kind, values, now, raised=False, delivered=False), now, grace)
+        remembered = {sim.iccid for sim in sims}
         for key, alert in known.items():
             if key not in problems:
-                self._resolve(alert)
+                kind, _, iccid = key.partition(":")
+                self._resolve(alert, tell=not (kind in ("sim", "storage") and iccid not in remembered))
         self._watch_telegram(now)
         self._announce_start(now, attached)
 
@@ -175,10 +178,11 @@ class HealthMonitor:
         delivered = alert.delivered or (raised and self._deliver("alert_header", i18n.alert_text, alert.kind, alert.values))
         self._store.save_alert(StoredAlert(alert.key, alert.kind, alert.values, alert.since, raised, delivered))
 
-    def _resolve(self, alert: StoredAlert) -> None:
+    def _resolve(self, alert: StoredAlert, tell: bool = True) -> None:
+        """The problem is over; `tell` is False when its SIM was forgotten, so nothing has recovered."""
         if alert.raised:
-            log.info("resolved: %s", i18n.alert_text("en", alert.kind, alert.values))
-        if alert.delivered and not self._deliver("resolved_header", i18n.resolved_text, alert.kind, alert.values):
+            log.info("%s: %s", "resolved" if tell else "dropped", i18n.alert_text("en", alert.kind, alert.values))
+        if tell and alert.delivered and not self._deliver("resolved_header", i18n.resolved_text, alert.kind, alert.values):
             return  # tell the owner it is over before forgetting it
         self._store.delete_alert(alert.key)
 

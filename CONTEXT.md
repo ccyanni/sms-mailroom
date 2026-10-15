@@ -28,6 +28,10 @@ _Avoid_: Segment, fragment, chunk
 Where the owner keeps a Message worth holding on to, out of the inbox. An archived Message is still stored and searchable and can be moved back; archiving is not deleting.
 _Avoid_: Hide, dismiss, folder, read/unread
 
+**Forget**:
+What the owner does to a SIM that is no longer used: it leaves the Status page, the SIM filter and the Alerts, while its Messages are kept. A forgotten SIM put into a Modem again is remembered as it was; forgetting is not deleting.
+_Avoid_: Remove, delete, unregister
+
 **Forwarding**:
 Delivering a copy of a Message to the owner's Telegram chat. It is switched on or off per SIM.
 _Avoid_: Relay, push, notification

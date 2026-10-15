@@ -315,6 +315,12 @@ def create_app(
             store.correct_sim_number(iccid, number.strip() or None)
         return _back(request)
 
+    @app.post("/sims/{iccid}/forget")
+    def forget_sim(iccid: str, request: Request):
+        if all(modem.iccid != iccid for modem in service.modems()):  # a SIM in a Modem is in use
+            store.forget_sim(iccid)
+        return _back(request)
+
     @app.post("/sims/{iccid}/forwarding")
     async def set_forwarding(iccid: str, request: Request):
         store.set_forwarding(iccid, (await _form(request)).get("enabled") == "1")

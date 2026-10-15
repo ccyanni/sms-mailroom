@@ -1,10 +1,12 @@
 """The owner sees every SIM Mailroom knows and can manage it."""
 
 import re
+import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
 
+from mailroom.store import Store
 from mailroom.telegram import TelegramSettings
 from mailroom.web import create_app
 from support import FakeModem, FakeTransport, build_pdu, wait_for
@@ -227,3 +229,61 @@ def test_sim_moved_to_another_modem_keeps_its_label_settings_and_messages(transp
         ("Travel SIM", "in the first Modem"),
         ("Travel SIM", "in the second Modem"),
     ]
+
+
+def unplug(transport, page, modem) -> None:
+    transport.unplug(modem)
+    wait_for(lambda: all(s["registration"] == "not in a Modem" for s in sims(page)))
+
+
+def test_forgotten_sim_leaves_the_page_but_keeps_its_messages(transport, page):
+    modem = plug(transport, page)
+    page.post(f"/sims/{ICCID}/details", data={"label": "Old line"})
+    modem.deliver(build_pdu("0912345678", "kept after forgetting"))
+    wait_for(lambda: message_labels(page))
+    unplug(transport, page, modem)
+    assert "Forget this SIM" in page.get("/status").text
+
+    page.post(f"/sims/{ICCID}/forget")
+
+    assert sims(page) == []
+    assert f'data-sim="{ICCID}"' not in page.get("/").text  # gone from the SIM filter
+    assert message_labels(page) == [("Old line", "kept after forgetting")]
+    assert "kept after forgetting" in page.get("/", params={"q": "0912345678"}).text
+
+
+def test_sim_in_a_modem_cannot_be_forgotten(transport, page):
+    plug(transport, page)
+    assert "Forget this SIM" not in page.get("/status").text
+
+    page.post(f"/sims/{ICCID}/forget")
+
+    assert len(sims(page)) == 1
+
+
+def test_forgotten_sim_put_back_comes_back_as_it_was(transport, page):
+    modem = plug(transport, page, number="+19886900000001")
+    page.post(f"/sims/{ICCID}/details", data={"label": "Home", "number": "+886900000001"})
+    page.post(f"/sims/{ICCID}/forwarding", data={"enabled": "0"})
+    unplug(transport, page, modem)
+    page.post(f"/sims/{ICCID}/forget")
+
+    transport.plug(modem)
+    wait_for(lambda: sims(page))
+
+    (sim,) = sims(page)
+    assert (sim["label"], sim["number"], sim["forwarding"]) == ("Home", "+886900000001", "off")
+
+
+def test_database_from_before_forgetting_is_upgraded(tmp_path):
+    Store(tmp_path / "mailroom.db").register_sim(ICCID, "+886900000001")
+    db = sqlite3.connect(tmp_path / "mailroom.db")
+    db.execute("ALTER TABLE sims DROP COLUMN forgotten")
+    db.execute("PRAGMA user_version = 5")
+    db.commit()
+    db.close()
+
+    store = Store(tmp_path / "mailroom.db")
+    assert [sim.iccid for sim in store.list_sims()] == [ICCID]
+    store.forget_sim(ICCID)
+    assert store.list_sims() == []

@@ -13,14 +13,15 @@ from pathlib import Path
 
 from mailroom.pdu import Delivery, PduError, decode_deliver
 
-_SCHEMA_VERSION = 5
+_SCHEMA_VERSION = 6
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sims (
     iccid  TEXT PRIMARY KEY,
     label      TEXT NOT NULL,
     number     TEXT,
     forwarding INTEGER NOT NULL DEFAULT 1,
-    number_override TEXT
+    number_override TEXT,
+    forgotten  INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE messages (
     id           INTEGER PRIMARY KEY,
@@ -131,26 +132,32 @@ class Store:
                 copy.close()
 
     def register_sim(self, iccid: str, number: str | None) -> None:
-        """Record a SIM the first time it is seen; a known SIM keeps its label."""
+        """Record a SIM the first time it is seen; a known SIM keeps its label, and a forgotten one is remembered again."""
         label = number or f"SIM …{iccid[-4:]}"
         with self._lock, self._db:
             self._db.execute(
                 "INSERT INTO sims (iccid, label, number) VALUES (?, ?, ?) "
-                "ON CONFLICT (iccid) DO UPDATE SET number = COALESCE(excluded.number, number)",
+                "ON CONFLICT (iccid) DO UPDATE SET number = COALESCE(excluded.number, number), forgotten = 0",
                 (iccid, label, number),
             )
 
     def list_sims(self) -> list[StoredSim]:
+        """The SIMs the owner has not forgotten."""
         with self._lock:
             rows = self._db.execute(
                 "SELECT s.iccid, s.label, COALESCE(s.number_override, s.number), s.forwarding, "
                 "(SELECT MAX(sent_at) FROM messages m WHERE m.sim_iccid = s.iccid) "
-                "FROM sims s ORDER BY s.rowid"
+                "FROM sims s WHERE NOT s.forgotten ORDER BY s.rowid"
             ).fetchall()
         return [
             StoredSim(iccid, label, number, bool(forwarding), datetime.fromisoformat(last) if last else None)
             for iccid, label, number, forwarding, last in rows
         ]
+
+    def forget_sim(self, iccid: str) -> None:
+        """Stop showing a SIM that is no longer used; its Messages are kept."""
+        with self._lock, self._db:
+            self._db.execute("UPDATE sims SET forgotten = 1 WHERE iccid = ?", (iccid,))
 
     def rename_sim(self, iccid: str, label: str) -> None:
         with self._lock, self._db:
@@ -377,8 +384,11 @@ class Store:
                 self._db.execute("UPDATE messages SET forward_state = ?", (SKIPPED,))
             if version < 4:
                 self._db.execute("ALTER TABLE messages ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
-        if "number_override" not in {row[1] for row in self._db.execute("PRAGMA table_info(sims)")}:
+        sim_columns = {row[1] for row in self._db.execute("PRAGMA table_info(sims)")}
+        if "number_override" not in sim_columns:
             self._db.execute("ALTER TABLE sims ADD COLUMN number_override TEXT")
+        if "forgotten" not in sim_columns:
+            self._db.execute("ALTER TABLE sims ADD COLUMN forgotten INTEGER NOT NULL DEFAULT 0")
         self._db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
 

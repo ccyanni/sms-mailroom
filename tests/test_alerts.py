@@ -112,6 +112,19 @@ def test_modem_that_disappears_raises_an_alert_and_another_when_it_returns(trans
         assert alerts(telegram)[1].startswith("✅ Mailroom: resolved\nSIM +886900000001 is receiving again: its Modem")
 
 
+def test_forgetting_a_missing_sim_ends_its_alert_without_a_recovery_notice(transport, modem, telegram, mailroom):
+    with mailroom() as page:
+        wait_for(lambda: receiving(page))
+        transport.unplug(modem)
+        wait_for(lambda: alerts(telegram))
+
+        page.post(f"/sims/{ICCID}/forget")
+        wait_for(lambda: "is not receiving" not in page.get("/status").text)
+        settle()
+
+        assert len(alerts(telegram)) == 1
+
+
 def test_modem_that_drops_off_for_a_moment_stays_quiet(transport, modem, telegram, mailroom):
     with mailroom(alert_after=5.0) as page:
         wait_for(lambda: receiving(page))

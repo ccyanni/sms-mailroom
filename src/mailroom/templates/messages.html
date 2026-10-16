@@ -16,6 +16,7 @@
     .row2 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.78rem; color: var(--muted); }
     .text { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     details[open] > .msg-head .text { display: block; white-space: pre-wrap; }
+    .text.notice { color: var(--muted); font-style: italic; }
     .detail { padding: 0 14px 12px; display: grid; gap: 10px; }
     .code { display: flex; align-items: center; gap: 10px; background: var(--accent-soft); border-radius: 8px; padding: 6px 6px 6px 12px; }
     .code b { font: 600 1.25rem/1.2 var(--mono); letter-spacing: 0.12em; color: var(--accent); }
@@ -89,7 +90,7 @@
           {% endif %}
             <span class="row1"><span class="sender">{{ m.sender }}</span><span class="ago">{{ m.ago }}</span></span>
             <span class="row2"><span class="tag sim-tag"><span class="sim-label">{{ m.sim }}</span></span>{% if not m.complete %}<span class="tag warn incomplete">{{ t.incomplete }}</span>{% endif %}</span>
-            <span class="text">{% if selecting %}{{ m.text }}{% else %}{% for part in m.parts %}{% if part.link %}<a class="url" href="#link-{{ m.id }}-{{ part.link }}">{{ part.text }}</a>{% else %}{{ part.text }}{% endif %}{% endfor %}{% endif %}</span>
+            <span class="text{{ ' notice' if m.notice else '' }}">{% if selecting %}{{ m.text }}{% else %}{% for part in m.parts %}{% if part.link %}<a class="url" href="#link-{{ m.id }}-{{ part.link }}">{{ part.text }}</a>{% else %}{{ part.text }}{% endif %}{% endfor %}{% endif %}</span>
           {% if selecting %}
           </label>
           {% else %}

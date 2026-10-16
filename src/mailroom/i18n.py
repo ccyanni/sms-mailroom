@@ -145,6 +145,8 @@ _STRINGS: dict[str, dict[str, str]] = {
         "started_summary": "{modems} Modems attached, {good} of {sims} SIMs receiving",
         "message_incomplete": "⚠️ Incomplete: some parts have not arrived",
         "message_completed": "✅ Now complete (sent earlier with parts missing)",
+        "kind_mms": "A multimedia message (MMS) arrived. SMS Mailroom does not use mobile data, so it cannot download what the message holds.",
+        "kind_data": "A data message meant for an app on a phone arrived. It cannot be shown as text.",
     },
     "zh": {
         "html_lang": "zh-Hant",
@@ -281,6 +283,8 @@ _STRINGS: dict[str, dict[str, str]] = {
         "started_summary": "接上 {modems} 片模組，{sims} 張 SIM 中有 {good} 張正常收訊",
         "message_incomplete": "⚠️ 不完整：部分段落尚未送達",
         "message_completed": "✅ 已補齊（先前送出時缺少部分段落）",
+        "kind_mms": "收到一則多媒體簡訊（MMS）。SMS Mailroom 不使用行動數據，所以無法下載它的內容。",
+        "kind_data": "收到一則給手機程式讀取的資料簡訊，無法顯示成文字。",
     },
 }
 
@@ -296,6 +300,11 @@ def strings(lang: str) -> dict[str, str]:
 
 def text(lang: str, key: str, **values: object) -> str:
     return strings(lang)[key].format(**values)
+
+
+def message_text(lang: str, kind: str, stored_text: str) -> str:
+    """What a Message says: its own text, or for an MMS or data Message a notice of what arrived."""
+    return stored_text if kind == "text" else text(lang, f"kind_{kind}")
 
 
 def alert_text(lang: str, kind: str, values: dict) -> str:

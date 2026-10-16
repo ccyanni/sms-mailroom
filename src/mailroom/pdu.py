@@ -16,6 +16,12 @@ _GSM_EXTENSION = {
     0x3C: "[", 0x3D: "~", 0x3E: "]", 0x40: "|", 0x65: "€",
 }
 _ESCAPE = 0x1B
+_WAP_PUSH_PORT = 2948
+_MMS_CONTENT_TYPE = 0xBE  # application/vnd.wap.mms-message, as a WSP well-known value
+
+TEXT = "text"
+MMS = "mms"  # the notice of a multimedia message; its content is fetched over mobile data
+DATA = "data"  # addressed to an application on the phone, not meant to be read
 
 
 class PduError(ValueError):
@@ -33,12 +39,17 @@ class Concatenation:
 
 @dataclass(frozen=True)
 class Delivery:
-    """One decoded SMS-DELIVER: a whole Message, or a single Part of one."""
+    """One decoded SMS-DELIVER: a whole Message, or a single Part of one.
+
+    For an MMS or DATA delivery the text is its payload in hex, which nobody reads
+    but which tells one such Part from another.
+    """
 
     sender: str
     sent_at: datetime
     text: str
     concatenation: Concatenation | None = None
+    kind: str = TEXT
 
 
 def decode_deliver(pdu_hex: str) -> Delivery:
@@ -79,6 +90,11 @@ def _decode(raw: bytes) -> Delivery:
     header_octets = len(header) + 1 if has_header else 0
 
     alphabet = _alphabet(dcs)
+    port = _destination_port(header)
+    if alphabet == "data" and port is not None:
+        payload = data[header_octets:length]
+        kind = MMS if port == _WAP_PUSH_PORT and _is_mms_notice(payload) else DATA
+        return Delivery(sender, sent_at, payload.hex(), _concatenation(header), kind)
     if alphabet == "gsm7":
         septets = _unpack_septets(data, length)
         skip = -(-header_octets * 8 // 7)
@@ -147,14 +163,39 @@ def _gsm_to_text(septets: list[int]) -> str:
     return "".join(out)
 
 
-def _concatenation(header: bytes) -> Concatenation | None:
+def _destination_port(header: bytes) -> int | None:
+    """The application port a data SMS is addressed to, if its header names one."""
+    for element, body in _elements(header):
+        if element == 0x04 and len(body) == 2:
+            return body[0]
+        if element == 0x05 and len(body) == 4:
+            return int.from_bytes(body[:2], "big")
+    return None
+
+
+def _is_mms_notice(payload: bytes) -> bool:
+    """Whether a WAP Push carries an MMS notification (WAP-230 WSP, OMA MMS encapsulation)."""
+    if len(payload) < 4 or payload[1] != 0x06:  # transaction id, then the Push PDU type
+        return False
+    pos = 2
+    while pos < len(payload) and payload[pos] & 0x80:  # the headers' length is a uintvar
+        pos += 1
+    content_type = payload[pos + 1:]
+    return content_type[:1] == bytes([_MMS_CONTENT_TYPE]) or content_type.startswith(b"application/vnd.wap.mms-message")
+
+
+def _elements(header: bytes):
     pos = 0
     while pos + 2 <= len(header):
         element, size = header[pos], header[pos + 1]
-        body = header[pos + 2:pos + 2 + size]
-        if element == 0x00 and size == 3:
-            return Concatenation(body[0], body[1], body[2])
-        if element == 0x08 and size == 4:
-            return Concatenation(int.from_bytes(body[:2], "big"), body[2], body[3])
+        yield element, header[pos + 2:pos + 2 + size]
         pos += 2 + size
+
+
+def _concatenation(header: bytes) -> Concatenation | None:
+    for element, body in _elements(header):
+        if element == 0x00 and len(body) == 3:
+            return Concatenation(body[0], body[1], body[2])
+        if element == 0x08 and len(body) == 4:
+            return Concatenation(int.from_bytes(body[:2], "big"), body[2], body[3])
     return None

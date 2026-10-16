@@ -164,6 +164,30 @@ def build_pdu(
     return f"{smsc}{first_octet}{address}00{dcs}{_timestamp(sent_at)}{length:02X}{body.hex().upper()}"
 
 
+def build_data_pdu(
+    sender: str,
+    payload: bytes,
+    port: int,
+    sent_at: datetime = datetime(2026, 10, 11, 23, 34, 7, tzinfo=TAIPEI_TIME),
+    part: tuple[int, int, int] | None = None,
+) -> str:
+    """Build an 8-bit data SMS-DELIVER addressed to an application port, as WAP Push and MMS notices are."""
+    digits = sender.lstrip("+")
+    address = f"{len(digits):02X}81{_swap(digits + 'F' * (len(digits) % 2))}"
+    header = bytes([0x05, 0x04, *port.to_bytes(2, "big"), 0x23, 0xF0])
+    if part is not None:
+        header += bytes([0x00, 0x03, *part])
+    body = bytes([len(header)]) + header + payload
+    return f"0791889623844906{'44'}{address}0004{_timestamp(sent_at)}{len(body):02X}{body.hex().upper()}"
+
+
+def mms_notice(location: str = "http://mms.example.com/m/1") -> bytes:
+    """A WAP Push carrying an MMS m-notification-ind, shaped like the ones carriers send."""
+    push_headers = bytes([0xBE, 0xAF, 0x84])  # application/vnd.wap.mms-message, for the MMS user agent
+    mms = bytes([0x8C, 0x82, 0x98]) + b"T1\x00" + bytes([0x8D, 0x90, 0x8A, 0x80, 0x8E, 0x01, 0x0D, 0x83])
+    return bytes([0x01, 0x06, len(push_headers)]) + push_headers + mms + location.encode() + b"\x00"
+
+
 def _swap(digits: str) -> str:
     return "".join(digits[i + 1] + digits[i] for i in range(0, len(digits), 2))
 

@@ -75,4 +75,4 @@ def format_message(message: StoredMessage, follow_up: bool = False, language: st
         lines.append(i18n.text(language, "message_incomplete"))
     elif follow_up:
         lines.append(i18n.text(language, "message_completed"))
-    return "\n".join(lines) + "\n\n" + message.text
+    return "\n".join(lines) + "\n\n" + i18n.message_text(language, message.kind, message.text)

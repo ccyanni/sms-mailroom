@@ -17,7 +17,7 @@ One SIM card, identified by its ICCID and carrying a phone number and an owner-g
 _Avoid_: Line, number, card, account
 
 **Message**:
-One SMS received by a SIM, with its sender, text and the time the network stamped it. A Message stays with its SIM even if the SIM moves to another Modem.
+One SMS received by a SIM, with its sender, text and the time the network stamped it. A Message stays with its SIM even if the SIM moves to another Modem. An MMS notice or a data SMS meant for an app is also a Message, shown as a notice of what arrived because its content is not text.
 _Avoid_: Text, SMS record, notification
 
 **Part**:

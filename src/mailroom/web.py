@@ -21,6 +21,7 @@ from mailroom.forwarder import Forwarder
 from mailroom.health import HealthMonitor
 from mailroom.receiver import HOME, RECEIVING, ROAMING
 from mailroom.service import Service
+from mailroom.pdu import TEXT
 from mailroom.store import PENDING, SENT, SENT_INCOMPLETE, SKIPPED, Store
 from mailroom.telegram import HttpPost, TelegramSettings, http_post, telegram_sender
 from mailroom.transport import Transport
@@ -142,19 +143,22 @@ def create_app(
             "search": search or None,
         }
         for m in store.list_messages(**found, archived=archived):
-            code = _CODE.search(m.text) if _MENTIONS_CODE.search(m.text) else None
+            readable = m.kind == TEXT
+            shown = i18n.message_text(lang, m.kind, m.text)
+            code = _CODE.search(shown) if readable and _MENTIONS_CODE.search(shown) else None
             rows.append(
                 {
                     "id": m.id,
                     "sim": m.sim_label,
                     "sender": m.sender,
-                    "text": m.text,
+                    "text": shown,
+                    "notice": not readable,
                     "time": _taipei(m.sent_at),
                     "ago": i18n.relative_time(lang, m.sent_at.astimezone(TAIPEI), now),
                     "complete": m.complete,
                     "forwarding": i18n.text(lang, _FORWARD_LABELS[m.forward_state]),
                     "code": code.group() if code else None,
-                    **_with_links(m.text),
+                    **_with_links(shown),
                 }
             )
         inbox_count, archived_count = store.count_messages(**found)

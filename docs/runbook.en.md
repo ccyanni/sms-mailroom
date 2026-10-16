@@ -103,5 +103,6 @@ Without `[telegram]`, Messages are stored but not forwarded. Without `[access]`,
 ## Known behaviour
 
 - A Modem occasionally reports a read error; SMS Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub or its power supply.
+- A multimedia message (MMS) is shown only as a notice, without its content: a phone downloads that over mobile data, which SMS Mailroom never uses. A data message meant for an app on a phone is shown as a notice too. Both are forwarded to Telegram as usual and can be found by sender, but not by content.
 - Roaming SIMs sometimes deliver an SMS minutes late, or twice. A repeat with the same sender, network time and text is stored once.
 - A Message deleted on the page is gone for good.

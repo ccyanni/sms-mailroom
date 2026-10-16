@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from mailroom.pdu import Delivery, PduError, decode_deliver
+from mailroom.pdu import MMS, TEXT, Delivery, PduError, decode_deliver
 
-_SCHEMA_VERSION = 6
+_SCHEMA_VERSION = 7
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sims (
     iccid  TEXT PRIMARY KEY,
@@ -34,7 +34,8 @@ CREATE TABLE messages (
     concat_ref   INTEGER,
     concat_total INTEGER,
     forward_state TEXT NOT NULL DEFAULT 'pending',
-    archived      INTEGER NOT NULL DEFAULT 0
+    archived      INTEGER NOT NULL DEFAULT 0,
+    kind          TEXT NOT NULL DEFAULT 'text'
 );
 CREATE TABLE parts (
     id          INTEGER PRIMARY KEY,
@@ -82,6 +83,7 @@ class StoredMessage:
     forward_state: str = PENDING
     forwarding: bool = True
     archived: bool = False
+    kind: str = TEXT  # TEXT, or an MMS or DATA Message whose text is not for reading
 
 
 @dataclass(frozen=True)
@@ -302,7 +304,7 @@ class Store:
         if message_id is None:
             message_id = self._db.execute(
                 "INSERT INTO messages (sim_iccid, sender, text, sent_at, received_at, complete, "
-                "concat_ref, concat_total) VALUES (?, ?, '', ?, ?, 0, ?, ?)",
+                "concat_ref, concat_total, kind) VALUES (?, ?, '', ?, ?, 0, ?, ?, ?)",
                 (
                     iccid,
                     delivery.sender,
@@ -310,8 +312,11 @@ class Store:
                     _utc(received_at),
                     concat.reference if concat else None,
                     concat.total if concat else None,
+                    delivery.kind,
                 ),
             ).lastrowid
+        elif delivery.kind == MMS:  # only the first Part of a data Message shows it is an MMS notice
+            self._db.execute("UPDATE messages SET kind = ? WHERE id = ?", (MMS, message_id))
         self._db.execute(
             "INSERT INTO parts (message_id, sim_iccid, sequence, text, sent_at, pdu) VALUES (?, ?, ?, ?, ?, ?)",
             (message_id, iccid, sequence, delivery.text, _utc(delivery.sent_at), pdu),
@@ -348,7 +353,7 @@ class Store:
             if piece != MISSING_PART or pieces[-1:] != [MISSING_PART]:
                 pieces.append(piece)
         self._db.execute(
-            "UPDATE messages SET text = ?, complete = ?, "
+            "UPDATE messages SET text = CASE kind WHEN 'text' THEN ? ELSE '' END, complete = ?, "
             "sent_at = (SELECT MIN(sent_at) FROM parts WHERE message_id = ?) WHERE id = ?",
             ("".join(pieces), len(parts) >= total, message_id, message_id),
         )
@@ -389,7 +394,26 @@ class Store:
             self._db.execute("ALTER TABLE sims ADD COLUMN number_override TEXT")
         if "forgotten" not in sim_columns:
             self._db.execute("ALTER TABLE sims ADD COLUMN forgotten INTEGER NOT NULL DEFAULT 0")
+        if "kind" not in {row[1] for row in self._db.execute("PRAGMA table_info(messages)")}:
+            self._db.execute("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'")
+            self._recognise_data_messages()
         self._db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+
+    def _recognise_data_messages(self) -> None:
+        """Mark MMS notices and data SMS stored before they were told apart, whose text was their payload as letters."""
+        recognised: dict[int, str] = {}
+        for part_id, message_id, pdu in self._db.execute("SELECT id, message_id, pdu FROM parts").fetchall():
+            try:
+                delivery = decode_deliver(pdu)
+            except PduError:
+                continue
+            if delivery.kind != TEXT:
+                self._db.execute("UPDATE parts SET text = ? WHERE id = ?", (delivery.text, part_id))
+                if recognised.get(message_id) != MMS:
+                    recognised[message_id] = delivery.kind
+        for message_id, kind in recognised.items():
+            self._db.execute("UPDATE messages SET kind = ? WHERE id = ?", (kind, message_id))
+            self._assemble(message_id)
 
 
 def _filter(
@@ -425,13 +449,13 @@ def _same_number(sender: str, search: str) -> bool:
 
 
 _SELECT_MESSAGE = (
-    "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete, m.forward_state, s.forwarding, m.archived "
+    "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete, m.forward_state, s.forwarding, m.archived, m.kind "
     "FROM messages m JOIN sims s ON s.iccid = m.sim_iccid "
 )
 
 
 def _stored(row: tuple) -> StoredMessage:
-    id_, label, sender, text, sent_at, complete, forward_state, forwarding, archived = row
+    id_, label, sender, text, sent_at, complete, forward_state, forwarding, archived, kind = row
     return StoredMessage(
         id_,
         label,
@@ -442,6 +466,7 @@ def _stored(row: tuple) -> StoredMessage:
         forward_state,
         bool(forwarding),
         bool(archived),
+        kind,
     )
 
 

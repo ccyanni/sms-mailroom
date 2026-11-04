@@ -50,6 +50,15 @@ CREATE TABLE parts (
 );
 """
 
+# Which Telegram message is a copy of which Message, so a button pressed under a copy finds its Message.
+# Message ids are reused once the newest Message is deleted for good, so a button never carries one.
+_COPIES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS telegram_copies (
+    telegram_message_id INTEGER PRIMARY KEY,
+    message_id          INTEGER NOT NULL
+);
+"""
+
 _ALERTS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS alerts (
     key       TEXT PRIMARY KEY,
@@ -131,6 +140,7 @@ class Store:
             if columns and "kind" not in columns:
                 self._db.execute("DROP TABLE alerts")  # an earlier layout; alerts are rebuilt as problems recur
             self._db.executescript(_ALERTS_SCHEMA)
+            self._db.executescript(_COPIES_SCHEMA)
         if left_in_freed_space:
             with self._lock:
                 self._db.execute("VACUUM")  # rewrites the file without the space earlier versions freed
@@ -267,6 +277,7 @@ class Store:
     def _purge(self, condition: str, values: tuple) -> None:
         chosen = f"SELECT id FROM messages WHERE deleted_at IS NOT NULL AND {condition}"
         self._db.execute(f"DELETE FROM parts WHERE message_id IN ({chosen})", values)
+        self._db.execute(f"DELETE FROM telegram_copies WHERE message_id IN ({chosen})", values)
         self._db.execute(f"DELETE FROM messages WHERE id IN ({chosen})", values)
 
     def awaiting_forwarding(self, incomplete_received_before: datetime) -> list[StoredMessage]:
@@ -288,6 +299,30 @@ class Store:
     def set_forward_state(self, message_id: int, state: str) -> None:
         with self._lock, self._db:
             self._db.execute("UPDATE messages SET forward_state = ? WHERE id = ?", (state, message_id))
+
+    def add_telegram_copy(self, message_id: int, telegram_message_id: int) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT OR REPLACE INTO telegram_copies (telegram_message_id, message_id) VALUES (?, ?)",
+                (telegram_message_id, message_id),
+            )
+
+    def message_for_telegram_copy(self, telegram_message_id: int) -> StoredMessage | None:
+        """The Message a Telegram message is a copy of; None once that Message is deleted for good."""
+        with self._lock:
+            row = self._db.execute(
+                _SELECT_MESSAGE + "JOIN telegram_copies c ON c.message_id = m.id WHERE c.telegram_message_id = ?",
+                (telegram_message_id,),
+            ).fetchone()
+        return _stored(row) if row else None
+
+    def telegram_copies(self, message_id: int) -> list[int]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT telegram_message_id FROM telegram_copies WHERE message_id = ? ORDER BY telegram_message_id",
+                (message_id,),
+            ).fetchall()
+        return [telegram_message_id for (telegram_message_id,) in rows]
 
     def list_alerts(self) -> list[StoredAlert]:
         with self._lock:

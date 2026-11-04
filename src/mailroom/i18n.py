@@ -48,6 +48,14 @@ _STRINGS: dict[str, dict[str, str]] = {
         "empty_trash_warning": "All {count} Messages in the Trash will be deleted for good. This cannot be undone.",
         "days_left": "Deleted for good in {days} days",
         "day_left": "Deleted for good within a day",
+        "tg_archived": "Archived",
+        "tg_unarchived": "Moved to the inbox",
+        "tg_trashed": "Moved to the Trash",
+        "tg_restored": "Restored",
+        "tg_restore_first": "This Message is in the Trash; restore it first",
+        "tg_unknown": "This button does nothing any more",
+        "tg_in_trash": "Moved to the Trash. Restore it here or on the page within {days} days.",
+        "tg_gone": "This Message has been deleted for good.",
         "link_warning_title": "Watch out for scams",
         "link_warning": "A link in an SMS may lead to a fake site. Open it only if you trust the sender and the "
         "address below is the one you expect, and do not enter passwords, codes or card details on the page it opens.",
@@ -147,6 +155,10 @@ _STRINGS: dict[str, dict[str, str]] = {
         "resolved_storage": "SIM {label} has storage slots free again.",
         "resolved_modem": "Modem {imei} is working again.",
         "resolved_unstable": "Modem {imei} has stopped disconnecting.",
+        "alert_buttons": "The buttons under forwarded Messages are not working: Mailroom cannot fetch button presses "
+        "from Telegram. A webhook, or another program using the bot's token, stops them; if you set up neither, "
+        "the token may have leaked. Replace it with @BotFather.",
+        "resolved_buttons": "The buttons under forwarded Messages work again.",
         "resolved_network_service": 'The macOS network service "A76XX Series LTE Module" is disabled again.',
         "started_boot": "🟢 Mailroom started (the Mac has just booted)",
         "started_restart": "🟢 Mailroom started (the service restarted)",
@@ -196,6 +208,14 @@ _STRINGS: dict[str, dict[str, str]] = {
         "empty_trash_warning": "垃圾桶裡的 {count} 則簡訊都會永久刪除，無法復原。",
         "days_left": "{days} 天後永久刪除",
         "day_left": "一天內永久刪除",
+        "tg_archived": "已封存",
+        "tg_unarchived": "已移回收件匣",
+        "tg_trashed": "已移到垃圾桶",
+        "tg_restored": "已復原",
+        "tg_restore_first": "這則簡訊在垃圾桶裡，請先復原",
+        "tg_unknown": "這個按鈕已經沒有作用",
+        "tg_in_trash": "已移到垃圾桶。{days} 天內可以在這裡或網頁上復原。",
+        "tg_gone": "這則簡訊已永久刪除。",
         "link_warning_title": "小心詐騙",
         "link_warning": "簡訊裡的連結可能通往假冒的網站。確定寄件者可信、下面的網址也是你預期的再開啟；"
         "不要在開啟的頁面輸入密碼、驗證碼或信用卡資料。",
@@ -293,6 +313,10 @@ _STRINGS: dict[str, dict[str, str]] = {
         "resolved_storage": "SIM「{label}」的儲存空間已經空出來了。",
         "resolved_modem": "模組 {imei} 恢復正常。",
         "resolved_unstable": "模組 {imei} 不再斷線了。",
+        "alert_buttons": "轉發簡訊下方的按鈕無法使用：Mailroom 收不到 Telegram 的按鈕事件。設定了 webhook，"
+        "或有其他程式在使用同一個機器人 token，都會造成這個情況；如果兩者你都沒有設定，token 可能已經外洩，"
+        "請用 @BotFather 換一個新的。",
+        "resolved_buttons": "轉發簡訊下方的按鈕恢復正常了。",
         "resolved_network_service": "macOS 的網路服務「A76XX Series LTE Module」已經停用。",
         "started_boot": "🟢 Mailroom 已啟動（電腦剛重新開機）",
         "started_restart": "🟢 Mailroom 已啟動（服務重新啟動）",

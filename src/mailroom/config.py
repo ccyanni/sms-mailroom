@@ -17,6 +17,7 @@ DEFAULT_PATH = DATA_DIR / "config.toml"
 @dataclass(frozen=True)
 class Config:
     telegram: TelegramSettings | None = None
+    telegram_buttons: bool = True  # Archive and Delete buttons under each forwarded Message
     alert_after_minutes: float = 3.0
     access: AccessSettings | None = None
     allow_unauthenticated: bool = False  # local development only
@@ -44,6 +45,7 @@ def load(path: Path | None = None) -> Config:
         raise ValueError(f"{path}: [access] needs both team_domain and audience")
     return Config(
         telegram=TelegramSettings(str(token), str(chat_id)) if token else None,
+        telegram_buttons=bool(telegram.get("buttons", True)),
         alert_after_minutes=float(data.get("alerts", {}).get("after_minutes", 3.0)),
         access=AccessSettings(_team_domain(str(team_domain)), str(audience)) if team_domain else None,
         allow_unauthenticated=bool(access.get("allow_unauthenticated", False)),

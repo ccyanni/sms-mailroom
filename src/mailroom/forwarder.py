@@ -21,14 +21,20 @@ class Forwarder:
     def __init__(
         self,
         store: Store,
-        send: Callable[[str], None] | None,
+        send: Callable[..., object] | None,
         part_timeout: float = 60.0,
         interval: float = 2.0,
         language: str = i18n.DEFAULT_LANGUAGE,
+        keyboard: Callable[[StoredMessage], dict] | None = None,
     ) -> None:
-        """`send` delivers one text to Telegram and raises if it could not; None means Telegram is not set up."""
+        """`send(text, keyboard)` delivers one text to Telegram, returns its Telegram message id if known,
+        and raises if it could not; None means Telegram is not set up.
+
+        `keyboard` gives the buttons to put under a Message's copy; None sends it without buttons.
+        """
         self._store = store
         self._send = send
+        self._keyboard = keyboard
         self._part_timeout = timedelta(seconds=part_timeout)
         self._interval = interval
         self._language = language
@@ -51,8 +57,12 @@ class Forwarder:
                 self._store.set_forward_state(message.id, SKIPPED)
                 continue
             follow_up = message.forward_state == SENT_INCOMPLETE
+            text = format_message(message, follow_up, self._language)
             try:
-                self._send(format_message(message, follow_up, self._language))
+                if self._keyboard is None:
+                    copy = self._send(text)
+                else:
+                    copy = self._send(text, self._keyboard(message))
             except Exception as exc:
                 if not self._failing:
                     log.warning("could not forward to Telegram, will keep trying: %s", exc)
@@ -64,6 +74,8 @@ class Forwarder:
             self._failing = False
             self.failing_since = None
             self.last_sent_at = datetime.now(timezone.utc)
+            if isinstance(copy, int):
+                self._store.add_telegram_copy(message.id, copy)
             self._store.set_forward_state(message.id, SENT if message.complete else SENT_INCOMPLETE)
         return True
 

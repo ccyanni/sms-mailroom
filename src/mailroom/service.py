@@ -54,20 +54,26 @@ class Service:
         self._running: dict[str, _Running] = {}
         self._unopenable: set[str] = set()
         self._threads: list[threading.Thread] = []
-        self._background: list[Callable[[threading.Event], None]] = [forwarder.run]
+        self._background: list[tuple[Callable[[threading.Event], None], bool]] = [(forwarder.run, True)]
         self._disconnects: deque[tuple[datetime, str]] = deque(maxlen=200)
 
-    def add_background(self, run: Callable[[threading.Event], None]) -> None:
-        """Run `run(stop)` on its own thread for as long as the service is up."""
-        self._background.append(run)
+    def add_background(self, run: Callable[[threading.Event], None], wait_on_stop: bool = True) -> None:
+        """Run `run(stop)` on its own thread for as long as the service is up.
+
+        `wait_on_stop` False is for a thread that can be stuck in a long network call: stopping does
+        not wait for it, and it ends with the process.
+        """
+        self._background.append((run, wait_on_stop))
 
     def start(self) -> None:
         self._scan()
-        self._threads = [threading.Thread(target=self._supervise, daemon=True)] + [
-            threading.Thread(target=run, args=(self._stop,), daemon=True) for run in self._background
-        ]
-        for thread in self._threads:
+        self._threads = [threading.Thread(target=self._supervise, daemon=True)]
+        for run, wait_on_stop in self._background:
+            thread = threading.Thread(target=run, args=(self._stop,), daemon=True)
             thread.start()
+            if wait_on_stop:
+                self._threads.append(thread)
+        self._threads[0].start()
 
     def stop(self) -> None:
         self._stop.set()

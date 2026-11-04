@@ -17,7 +17,7 @@ The numbers, modems and messages shown are sample data.
 ## Features
 
 - **Several SIMs at once**: one USB modem per SIM, and modems can be plugged in or pulled out while SMS Mailroom runs.
-- **Forwarding to Telegram**: every message is forwarded as it arrives, retried until Telegram accepts it, and never sent twice. Forwarding can be switched off per SIM.
+- **Forwarding to Telegram**: every message is forwarded as it arrives, retried until Telegram accepts it, and never sent twice. Forwarding can be switched off per SIM. Each forwarded message has Archive and Delete buttons, so it can be tidied without opening the page.
 - **Web interface**, built for a phone: search, filter by SIM, archive what is worth keeping, delete junk several at a time; deleted messages wait in a Trash for 30 days and can be restored. A verification code in a message is shown on its own with a copy button; a link in a message opens in a new window only past a scam warning that names the domain it really goes to.
 - **Status at a glance**: each SIM's operator, roaming state and signal, and the state of the system itself. A SIM can be renamed and its number corrected; one no longer used can be forgotten, keeping its messages.
 - **Alerts**: when a SIM drops off the network, a modem disappears or keeps disconnecting, or Telegram is unreachable, you are told on Telegram, and told again when it is over.

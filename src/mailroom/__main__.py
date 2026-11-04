@@ -47,6 +47,7 @@ def main() -> None:
         UsbTransport(),
         db_path,
         telegram=settings.telegram,
+        telegram_buttons=settings.telegram_buttons,
         alert_after=settings.alert_after_minutes * 60,
         network_service_enabled=network_service_enabled,
         access=access,

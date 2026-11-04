@@ -19,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 
 from mailroom import i18n
 from mailroom.backup import Backups
+from mailroom.buttons import Buttons
 from mailroom.access import COOKIE, HEADER, AccessPolicy, OpenAccess
 from mailroom.forwarder import Forwarder
 from mailroom.health import HealthMonitor
@@ -26,7 +27,7 @@ from mailroom.receiver import HOME, RECEIVING, ROAMING
 from mailroom.service import Service
 from mailroom.pdu import TEXT
 from mailroom.store import ARCHIVE, INBOX, PENDING, SENT, SENT_INCOMPLETE, SKIPPED, TRASH, Store
-from mailroom.telegram import HttpPost, TelegramSettings, http_post, telegram_sender
+from mailroom.telegram import HttpPost, TelegramBot, TelegramSettings, http_post
 from mailroom.transport import Transport
 
 log = logging.getLogger(__name__)
@@ -79,17 +80,25 @@ def create_app(
     backup_today: Callable[[], date] | None = None,
     trash_keep: timedelta = timedelta(days=30),
     trash_check_every: float = 3600.0,
+    telegram_buttons: bool = False,
+    telegram_poll_timeout: int = 25,
 ) -> FastAPI:
     """`language` is used for Telegram texts and for the page until the owner picks another.
 
     A Message is deleted for good once it has been in the Trash for `trash_keep`.
+    `telegram_buttons` puts Archive and Delete buttons under each forwarded Message and fetches their presses.
     """
     access = access or OpenAccess()
     language = i18n.language(language)
     store = Store(db_path)
-    send = telegram_sender(telegram, http_post) if telegram else None
-    forwarder = Forwarder(store, send, part_timeout, forward_interval, language)
+    bot = TelegramBot(telegram, http_post) if telegram else None
+    send = bot.send if bot else None
+    buttons = Buttons(store, bot, language, trash_keep, telegram_poll_timeout) if bot and telegram_buttons else None
+    keyboard = buttons.keyboard if buttons else None
+    forwarder = Forwarder(store, send, part_timeout, forward_interval, language, keyboard)
     service = Service(transport, store, forwarder, poll_interval, scan_interval)
+    if buttons:
+        service.add_background(buttons.run, wait_on_stop=False)
     monitor = HealthMonitor(
         store,
         service,
@@ -101,6 +110,7 @@ def create_app(
         language,
         start_notice,
         start_notice_after,
+        (lambda: buttons.failing_since is not None) if buttons else None,
     )
     service.add_background(monitor.run)
     backups = None

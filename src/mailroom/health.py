@@ -57,15 +57,18 @@ class HealthMonitor:
         store: Store,
         service: Service,
         forwarder: Forwarder,
-        send: Callable[[str], None] | None,
+        send: Callable[[str], object] | None,
         alert_after: float = 180.0,
         interval: float = 5.0,
         network_service_enabled: Callable[[], bool | None] | None = None,
         language: str = i18n.DEFAULT_LANGUAGE,
         start_notice: str | None = None,
         start_notice_after: float = 15.0,
+        buttons_failing: Callable[[], bool] | None = None,
     ) -> None:
         """A problem is reported once it has lasted `alert_after` seconds, so brief blips stay quiet.
+
+        `buttons_failing` says whether button presses cannot be fetched from Telegram right now.
 
         `start_notice` is "boot" or "restart" to tell the owner that Mailroom has started, once the
         Modems have had `start_notice_after` seconds to be found; None sends nothing.
@@ -78,6 +81,7 @@ class HealthMonitor:
         self._interval = interval
         self._network_service_enabled = network_service_enabled
         self._network_service_checked: datetime | None = None
+        self._buttons_failing = buttons_failing
         self._language = language
         self.network_service_state: bool | None = None  # as last probed; None when unknown
         self._outage_since: datetime | None = None
@@ -146,6 +150,9 @@ class HealthMonitor:
                 self.network_service_state = self._network_service_enabled()
             if self.network_service_state:
                 problems["data:network-service"] = ("network_service", {}, _NOW)
+
+        if self._buttons_failing is not None and self._buttons_failing():
+            problems["telegram:buttons"] = ("buttons", {}, self._alert_after)
 
         for key, (kind, values, grace) in problems.items():
             self._raise(known.get(key) or StoredAlert(key, kind, values, now, raised=False, delivered=False), now, grace)

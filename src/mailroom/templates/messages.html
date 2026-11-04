@@ -50,13 +50,16 @@
     .selbar > div { max-width: 40rem; margin: 0 auto; padding: 8px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.9rem; }
     .selbar .spacer { margin-left: auto; }
     .selbar .confirm[open] { flex-basis: 100%; }
+    .trash-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px; font-size: 0.85rem; color: var(--muted); }
+    .trash-note > span { flex: 1 1 14rem; min-width: 0; }
+    .trash-note .confirm[open] { flex-basis: 100%; }
 {% endblock %}
 {% block content %}
     <form class="search" method="get" action="/" role="search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
       <input type="search" id="q" name="q" value="{{ search }}" placeholder="{{ t.search }}" aria-label="{{ t.search }}" enterkeyhint="search">
       {% if sim %}<input type="hidden" name="sim" value="{{ sim }}">{% endif %}
-      {% if archived %}<input type="hidden" name="box" value="archived">{% endif %}
+      {% if box != 'inbox' %}<input type="hidden" name="box" value="{{ box }}">{% endif %}
       <button class="link">{{ t.search_button }}</button>
     </form>
 
@@ -68,9 +71,23 @@
         {% endfor %}
       </nav>
       <nav class="seg boxes">
-        <a href="{{ link(box='', select='') }}" aria-current="{{ 'false' if archived else 'true' }}">{{ t.inbox }} {{ inbox_count }}</a>
-        <a href="{{ link(box='archived', select='') }}" aria-current="{{ 'true' if archived else 'false' }}">{{ t.archive_box }} {{ archived_count }}</a>
+        <a href="{{ link(box='', select='') }}" aria-current="{{ 'true' if box == 'inbox' else 'false' }}">{{ t.inbox }} {{ counts.inbox }}</a>
+        <a href="{{ link(box='archived', select='') }}" aria-current="{{ 'true' if box == 'archived' else 'false' }}">{{ t.archive_box }} {{ counts.archived }}</a>
+        <a href="{{ link(box='trash', select='') }}" aria-current="{{ 'true' if box == 'trash' else 'false' }}">{{ t.trash_box }} {{ counts.trash }}</a>
       </nav>
+
+      {% if box == 'trash' %}
+      <div class="trash-note">
+        <span>{{ t.trash_note.format(days=trash_days) }}</span>
+        {% if trash_total %}
+        <details class="confirm">
+          <summary class="btn danger">{{ t.empty_trash }}</summary>
+          <span>{{ t.empty_trash_warning.format(count=trash_total) }}</span>
+          <form method="post" action="/trash/empty"><button class="btn solid-danger">{{ t.empty_trash }}</button></form>
+        </details>
+        {% endif %}
+      </div>
+      {% endif %}
 
       {% if messages %}
       <div class="tools">
@@ -110,17 +127,26 @@
               </div>
             </details>
             {% endfor %}
-            <div class="meta">{{ t.received }} <time>{{ m.time }}</time> · <span class="forwarding">{{ m.forwarding }}</span></div>
+            <div class="meta">{{ t.received }} <time>{{ m.time }}</time> · <span class="forwarding">{{ m.forwarding }}</span>{% if m.days_left %} · <span class="days-left">{{ t.day_left if m.days_left == 1 else t.days_left.format(days=m.days_left) }}</span>{% endif %}</div>
             <div class="actions">
-              <form method="post" action="/messages/{{ m.id }}/archive">
-                <input type="hidden" name="archived" value="{{ 0 if archived else 1 }}">
-                <button class="btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M3 5h18v3H3zM10 12h4"/></svg>{{ t.unarchive if archived else t.archive }}</button>
+              {% if box == 'trash' %}
+              <form method="post" action="/messages/{{ m.id }}/restore">
+                <button class="btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14l-4-4 4-4"/><path d="M5 10h9a5 5 0 0 1 0 10h-3"/></svg>{{ t.restore }}</button>
               </form>
               <details class="confirm">
-                <summary class="btn danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>{{ t.delete }}</summary>
+                <summary class="btn danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>{{ t.delete_confirm }}</summary>
                 <span>{{ t.delete_warning }}</span>
-                <form method="post" action="/messages/{{ m.id }}/delete"><button class="btn solid-danger">{{ t.delete_confirm }}</button></form>
+                <form method="post" action="/messages/{{ m.id }}/purge"><button class="btn solid-danger">{{ t.delete_confirm }}</button></form>
               </details>
+              {% else %}
+              <form method="post" action="/messages/{{ m.id }}/archive">
+                <input type="hidden" name="archived" value="{{ 0 if box == 'archived' else 1 }}">
+                <button class="btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M3 5h18v3H3zM10 12h4"/></svg>{{ t.unarchive if box == 'archived' else t.archive }}</button>
+              </form>
+              <form method="post" action="/messages/{{ m.id }}/delete">
+                <button class="btn danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>{{ t.delete }}</button>
+              </form>
+              {% endif %}
             </div>
           </div>
           </details>
@@ -129,19 +155,24 @@
         {% endfor %}
       </ul>
       {% else %}
-      <p class="empty">{{ t.no_matches if filtered else t.no_messages }}</p>
+      <p class="empty">{{ t.no_matches if filtered else (t.trash_empty if box == 'trash' else t.no_messages) }}</p>
       {% endif %}
 
       {% if selecting %}
-      <form class="selbar" id="bulk" method="post" action="/messages/delete">
+      <form class="selbar" id="bulk" method="post" action="{{ '/messages/purge' if box == 'trash' else '/messages/delete' }}">
         <div>
           <span><b id="picked">0</b> {{ t.selected }}</span>
           <button type="button" class="btn spacer" id="pick-all">{{ t.select_all }}</button>
+          {% if box == 'trash' %}
+          <button class="btn" formaction="/messages/restore">{{ t.restore }}</button>
           <details class="confirm">
-            <summary class="btn danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>{{ t.delete }}</summary>
+            <summary class="btn danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>{{ t.delete_confirm }}</summary>
             <span>{{ t.delete_warning }}</span>
             <button class="btn solid-danger">{{ t.delete_confirm }}</button>
           </details>
+          {% else %}
+          <button class="btn danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>{{ t.delete }}</button>
+          {% endif %}
         </div>
       </form>
       {% endif %}

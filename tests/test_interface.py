@@ -125,16 +125,18 @@ def test_message_says_how_long_ago_it_arrived_and_exactly_when(modem, mailroom):
     assert "<time>2026-10-11 23:34:07</time>" in html
 
 
-def test_deleting_takes_a_second_explicit_step(modem, mailroom):
+def test_deleting_for_good_takes_a_second_explicit_step(modem, mailroom):
     with mailroom() as page:
         modem.deliver(build_pdu("Bank", "hello"))
         wait_for(lambda: texts(page))
-        html = page.get("/").text
+        target = re.search(r'action="/messages/(\d+)/delete"', page.get("/").text).group(1)
+        page.post(f"/messages/{target}/delete")
+        html = page.get("/", params={"box": "trash"}).text
 
-    confirm = re.search(r'<details class="confirm">(.*?)</details>', html, flags=re.S).group(1)
-    assert "<summary" in confirm and "Delete" in confirm
+    confirms = re.findall(r'<details class="confirm">(.*?)</details>', html, flags=re.S)
+    confirm = next(c for c in confirms if f"/messages/{target}/purge" in c)
+    assert "<summary" in confirm and "Delete for good" in confirm
     assert "This cannot be undone." in confirm
-    assert re.search(r'action="/messages/\d+/delete"', confirm)
 
 
 # --- Language ---------------------------------------------------------------------------------------

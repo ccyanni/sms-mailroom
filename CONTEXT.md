@@ -28,6 +28,10 @@ _Avoid_: Segment, fragment, chunk
 Where the owner keeps a Message worth holding on to, out of the inbox. An archived Message is still stored and searchable and can be moved back; archiving is not deleting.
 _Avoid_: Hide, dismiss, folder, read/unread
 
+**Trash**:
+Where a deleted Message waits for 30 days before it is deleted for good, so a deletion can be undone. A Message in the Trash is not listed, searched or forwarded with the others; restored, it goes back to the inbox or the Archive, wherever it was.
+_Avoid_: Bin, recycle bin, deleted items
+
 **Forget**:
 What the owner does to a SIM that is no longer used: it leaves the Status page, the SIM filter and the Alerts, while its Messages are kept. A forgotten SIM put into a Modem again is remembered as it was; forgetting is not deleting.
 _Avoid_: Remove, delete, unregister

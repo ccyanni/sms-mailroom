@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+import math
 import re
+import threading
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -22,9 +25,11 @@ from mailroom.health import HealthMonitor
 from mailroom.receiver import HOME, RECEIVING, ROAMING
 from mailroom.service import Service
 from mailroom.pdu import TEXT
-from mailroom.store import PENDING, SENT, SENT_INCOMPLETE, SKIPPED, Store
+from mailroom.store import ARCHIVE, INBOX, PENDING, SENT, SENT_INCOMPLETE, SKIPPED, TRASH, Store
 from mailroom.telegram import HttpPost, TelegramSettings, http_post, telegram_sender
 from mailroom.transport import Transport
+
+log = logging.getLogger(__name__)
 
 TAIPEI = ZoneInfo("Asia/Taipei")
 LANGUAGE_COOKIE = "lang"
@@ -72,8 +77,13 @@ def create_app(
     backup_keep: int = 14,
     backup_check_every: float = 300.0,
     backup_today: Callable[[], date] | None = None,
+    trash_keep: timedelta = timedelta(days=30),
+    trash_check_every: float = 3600.0,
 ) -> FastAPI:
-    """`language` is used for Telegram texts and for the page until the owner picks another."""
+    """`language` is used for Telegram texts and for the page until the owner picks another.
+
+    A Message is deleted for good once it has been in the Trash for `trash_keep`.
+    """
     access = access or OpenAccess()
     language = i18n.language(language)
     store = Store(db_path)
@@ -100,8 +110,21 @@ def create_app(
         service.add_background(backups.run)
     started_at = datetime.now(timezone.utc)
 
+    def empty_old_trash() -> None:
+        try:
+            store.empty_trash(deleted_before=datetime.now(timezone.utc) - trash_keep)
+        except Exception:
+            log.exception("could not empty the Trash")
+
+    def keep_emptying_old_trash(stop: threading.Event) -> None:
+        while not stop.wait(trash_check_every):
+            empty_old_trash()
+
+    service.add_background(keep_emptying_old_trash)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        empty_old_trash()  # the service may have been down on the day something was due
         service.start()
         try:
             yield
@@ -135,14 +158,15 @@ def create_app(
     def messages(request: Request, sim: str = "", q: str = "", box: str = "inbox", select: str = ""):
         lang = _language(request, language)
         now = datetime.now(timezone.utc)
-        search, archived, selecting = q.strip(), box == "archived", select == "1"
+        search, selecting = q.strip(), select == "1"
+        box = box if box in (ARCHIVE, TRASH) else INBOX
         rows = []
         found = {
             "incomplete_received_before": now - timedelta(seconds=part_timeout),
             "sim_iccid": sim or None,
             "search": search or None,
         }
-        for m in store.list_messages(**found, archived=archived):
+        for m in store.list_messages(**found, box=box):
             readable = m.kind == TEXT
             shown = i18n.message_text(lang, m.kind, m.text)
             code = _CODE.search(shown) if readable and _MENTIONS_CODE.search(shown) else None
@@ -158,14 +182,15 @@ def create_app(
                     "complete": m.complete,
                     "forwarding": i18n.text(lang, _FORWARD_LABELS[m.forward_state]),
                     "code": code.group() if code else None,
+                    "days_left": _days_left(m.deleted_at, trash_keep, now) if m.deleted_at else None,
                     **_with_links(shown),
                 }
             )
-        inbox_count, archived_count = store.count_messages(**found)
+        counts = store.count_messages(**found)
 
         def link(**changes: str) -> str:
             """This list with something changed, keeping the rest of the filter."""
-            query = {"sim": sim, "q": search, "box": "archived" if archived else "", "select": "1" if selecting else ""}
+            query = {"sim": sim, "q": search, "box": "" if box == INBOX else box, "select": "1" if selecting else ""}
             query.update(changes)
             return "/?" + urlencode({key: value for key, value in query.items() if value})
 
@@ -178,11 +203,12 @@ def create_app(
             sims=[(s.iccid, s.label) for s in store.list_sims()],
             sim=sim,
             search=search,
-            archived=archived,
+            box=box,
             selecting=selecting,
             filtered=bool(sim or search),
-            inbox_count=inbox_count,
-            archived_count=archived_count,
+            counts=counts,
+            trash_total=store.count_messages()[TRASH] if box == TRASH else 0,
+            trash_days=trash_keep.days,
             link=link,
         )
 
@@ -294,13 +320,37 @@ def create_app(
 
     @app.post("/messages/delete")
     async def delete_messages(request: Request):
-        chosen = parse_qs((await request.body()).decode()).get("id", [])
-        store.delete_messages([int(value) for value in chosen if value.isdigit()])
+        store.move_to_trash(await _chosen(request))
+        return _back(request, drop=("select",))
+
+    @app.post("/messages/restore")
+    async def restore_messages(request: Request):
+        store.restore(await _chosen(request))
+        return _back(request, drop=("select",))
+
+    @app.post("/messages/purge")
+    async def purge_messages(request: Request):
+        store.delete_for_good(await _chosen(request))
         return _back(request, drop=("select",))
 
     @app.post("/messages/{message_id}/delete")
     def delete_message(message_id: int, request: Request):
-        store.delete_messages([message_id])
+        store.move_to_trash([message_id])
+        return _back(request)
+
+    @app.post("/messages/{message_id}/restore")
+    def restore_message(message_id: int, request: Request):
+        store.restore([message_id])
+        return _back(request)
+
+    @app.post("/messages/{message_id}/purge")
+    def purge_message(message_id: int, request: Request):
+        store.delete_for_good([message_id])
+        return _back(request)
+
+    @app.post("/trash/empty")
+    def empty_trash(request: Request):
+        store.empty_trash()
         return _back(request)
 
     @app.post("/messages/{message_id}/archive")
@@ -347,6 +397,17 @@ def _language(request: Request, default: str) -> str:
 
 def _taipei(moment: datetime) -> str:
     return moment.astimezone(TAIPEI).strftime("%Y-%m-%d %H:%M:%S")
+
+
+async def _chosen(request: Request) -> list[int]:
+    """The Messages ticked in a selection."""
+    values = parse_qs((await request.body()).decode()).get("id", [])
+    return [int(value) for value in values if value.isdigit()]
+
+
+def _days_left(deleted_at: datetime, keep: timedelta, now: datetime) -> int:
+    """Whole days, rounded up, until a Message in the Trash is deleted for good."""
+    return max(1, math.ceil((deleted_at + keep - now) / timedelta(days=1)))
 
 
 async def _form(request: Request) -> dict[str, str]:

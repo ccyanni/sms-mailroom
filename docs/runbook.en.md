@@ -23,7 +23,8 @@ Both daemons start at boot, before anyone logs in, and restart if they stop.
 ## Everyday operations
 
 - **Is it working?** Open the web page and go to Status. Each SIM has a card with its operator, signal and registration; below are the attached Modems and the state of the system itself (service, Telegram, macOS network service, USB connection, page protection). Anything wrong is listed in a yellow box at the top, marks the Status tab with a red dot, and has also been sent to Telegram.
-- **Tidying Messages:** under Messages, tap a Message to open it. Archive what is worth keeping; delete the rest. To delete several at once, tap Select and tick them, or search first and tap Select all.
+- **Tidying Messages:** under Messages, tap a Message to open it. Archive what is worth keeping; delete the rest, which moves it to the Trash. To delete several at once, tap Select and tick them, or search first and tap Select all.
+- **Trash:** a deleted Message waits in the Trash for 30 days, then is deleted for good by itself; if the service was not running that day, it happens the next time it starts. From the Trash, Restore puts a Message back in the inbox or the Archive, wherever it was; Delete for good removes one Message, the ticked ones, or with Empty the Trash all of them, each after a second confirmation. A Message in the Trash is not forwarded; restored, it is forwarded if it had not been yet.
 - **Messages from one person:** search for their phone number. The same phone can show up as `0933…`, `+886933…` or `00886933…` depending on the SIM it wrote to; any of these finds them all.
 - **Language and appearance:** the gear at the top right switches between 中文 and English, and between following the system, light and dark.
 - **Start notice:** about 15 seconds after the service starts, Telegram receives "🟢 Mailroom started", saying whether the Mac had just booted or only the service restarted, and how many Modems are attached and SIMs receiving. Getting one you did not expect means the service crashed and restarted itself; read the log.
@@ -105,4 +106,4 @@ Without `[telegram]`, Messages are stored but not forwarded. Without `[access]`,
 - A Modem occasionally reports a read error; SMS Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub or its power supply.
 - A multimedia message (MMS) is shown only as a notice, without its content: a phone downloads that over mobile data, which SMS Mailroom never uses. A data message meant for an app on a phone is shown as a notice too. Both are forwarded to Telegram as usual and can be found by sender, but not by content.
 - Roaming SIMs sometimes deliver an SMS minutes late, or twice. A repeat with the same sender, network time and text is stored once.
-- A Message deleted on the page is gone for good.
+- A deleted Message can be restored from the Trash for 30 days. Once deleted for good, its text is cleared from the database file, but the daily backups still hold a copy until they are rotated out (14 are kept by default). A deleted Message is therefore fully gone after about 44 days at most.

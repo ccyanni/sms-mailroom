@@ -13,7 +13,7 @@ from pathlib import Path
 
 from mailroom.pdu import MMS, TEXT, Delivery, PduError, decode_deliver
 
-_SCHEMA_VERSION = 7
+_SCHEMA_VERSION = 8
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sims (
     iccid  TEXT PRIMARY KEY,
@@ -35,7 +35,8 @@ CREATE TABLE messages (
     concat_total INTEGER,
     forward_state TEXT NOT NULL DEFAULT 'pending',
     archived      INTEGER NOT NULL DEFAULT 0,
-    kind          TEXT NOT NULL DEFAULT 'text'
+    kind          TEXT NOT NULL DEFAULT 'text',
+    deleted_at    TEXT
 );
 CREATE TABLE parts (
     id          INTEGER PRIMARY KEY,
@@ -71,6 +72,14 @@ SENT_INCOMPLETE = "sent_incomplete"  # delivered while Parts were missing; owed 
 SENT = "sent"
 SKIPPED = "skipped"  # never to be forwarded
 
+# Where a Message is kept.
+INBOX, ARCHIVE, TRASH = "inbox", "archived", "trash"
+_IN_BOX = {
+    INBOX: "m.deleted_at IS NULL AND NOT m.archived",
+    ARCHIVE: "m.deleted_at IS NULL AND m.archived",
+    TRASH: "m.deleted_at IS NOT NULL",
+}
+
 
 @dataclass(frozen=True)
 class StoredMessage:
@@ -84,6 +93,7 @@ class StoredMessage:
     forwarding: bool = True
     archived: bool = False
     kind: str = TEXT  # TEXT, or an MMS or DATA Message whose text is not for reading
+    deleted_at: datetime | None = None  # when it was moved to the Trash
 
 
 @dataclass(frozen=True)
@@ -112,13 +122,18 @@ class Store:
         self._db = sqlite3.connect(path, check_same_thread=False)
         self._db.create_function("same_number", 2, _same_number, deterministic=True)
         os.chmod(path, 0o600)  # Messages are stored in plain text
+        # Deleted rows are overwritten, not just marked free, so deleted text cannot be read back from the file.
+        self._db.execute("PRAGMA secure_delete = ON")
         self._lock = threading.Lock()
         with self._lock, self._db:
-            self._migrate()
+            left_in_freed_space = self._migrate()
             columns = {row[1] for row in self._db.execute("PRAGMA table_info(alerts)")}
             if columns and "kind" not in columns:
                 self._db.execute("DROP TABLE alerts")  # an earlier layout; alerts are rebuilt as problems recur
             self._db.executescript(_ALERTS_SCHEMA)
+        if left_in_freed_space:
+            with self._lock:
+                self._db.execute("VACUUM")  # rewrites the file without the space earlier versions freed
 
     def close(self) -> None:
         with self._lock:
@@ -189,9 +204,9 @@ class Store:
         incomplete_received_before: datetime | None = None,
         sim_iccid: str | None = None,
         search: str | None = None,
-        archived: bool = False,
+        box: str = INBOX,
     ) -> list[StoredMessage]:
-        """The inbox, or the Archive, newest first; optionally one SIM's and only Messages containing `search`.
+        """The Messages in one box, newest first; optionally one SIM's and only Messages containing `search`.
 
         A Message still missing Parts is left out until it has waited since
         `incomplete_received_before`, so that Parts in transit are not shown as a broken Message.
@@ -199,8 +214,7 @@ class Store:
         where, values = _filter(incomplete_received_before, sim_iccid, search)
         with self._lock:
             rows = self._db.execute(
-                _SELECT_MESSAGE + f"WHERE {where} AND m.archived = ? ORDER BY m.sent_at DESC, m.id DESC",
-                [*values, archived],
+                _SELECT_MESSAGE + f"WHERE {where} AND {_IN_BOX[box]} ORDER BY m.sent_at DESC, m.id DESC", values
             ).fetchall()
         return [_stored(row) for row in rows]
 
@@ -209,27 +223,51 @@ class Store:
         incomplete_received_before: datetime | None = None,
         sim_iccid: str | None = None,
         search: str | None = None,
-    ) -> tuple[int, int]:
-        """How many Messages the same filter finds in the inbox and in the Archive."""
+    ) -> dict[str, int]:
+        """How many Messages the same filter finds in each box."""
         where, values = _filter(incomplete_received_before, sim_iccid, search)
+        counted = ", ".join(f"COALESCE(SUM({condition}), 0)" for condition in _IN_BOX.values())
         with self._lock:
-            counts = dict(
-                self._db.execute(
-                    f"SELECT m.archived, COUNT(*) FROM messages m WHERE {where} GROUP BY m.archived", values
-                )
-            )
-        return counts.get(0, 0), counts.get(1, 0)
+            row = self._db.execute(f"SELECT {counted} FROM messages m WHERE {where}", values).fetchone()
+        return dict(zip(_IN_BOX, row))
 
     def set_archived(self, message_id: int, archived: bool) -> None:
         with self._lock, self._db:
             self._db.execute("UPDATE messages SET archived = ? WHERE id = ?", (archived, message_id))
 
-    def delete_messages(self, message_ids: list[int]) -> None:
-        """Remove Messages and their Parts for good."""
+    def move_to_trash(self, message_ids: list[int]) -> None:
+        moment = _utc(datetime.now(timezone.utc))
+        with self._lock, self._db:
+            self._db.executemany(
+                "UPDATE messages SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+                [(moment, message_id) for message_id in message_ids],
+            )
+
+    def restore(self, message_ids: list[int]) -> None:
+        """Take Messages out of the Trash, back to the inbox or the Archive, wherever they were."""
+        with self._lock, self._db:
+            self._db.executemany(
+                "UPDATE messages SET deleted_at = NULL WHERE id = ?", [(message_id,) for message_id in message_ids]
+            )
+
+    def delete_for_good(self, message_ids: list[int]) -> None:
+        """Remove Messages that are in the Trash, and their Parts. Messages elsewhere are left alone."""
         with self._lock, self._db:
             for message_id in message_ids:
-                self._db.execute("DELETE FROM parts WHERE message_id = ?", (message_id,))
-                self._db.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+                self._purge("id = ?", (message_id,))
+
+    def empty_trash(self, deleted_before: datetime | None = None) -> None:
+        """Delete for good everything in the Trash, or only what was moved there before `deleted_before`."""
+        with self._lock, self._db:
+            if deleted_before is None:
+                self._purge("1", ())
+            else:
+                self._purge("deleted_at <= ?", (_utc(deleted_before),))
+
+    def _purge(self, condition: str, values: tuple) -> None:
+        chosen = f"SELECT id FROM messages WHERE deleted_at IS NOT NULL AND {condition}"
+        self._db.execute(f"DELETE FROM parts WHERE message_id IN ({chosen})", values)
+        self._db.execute(f"DELETE FROM messages WHERE id IN ({chosen})", values)
 
     def awaiting_forwarding(self, incomplete_received_before: datetime) -> list[StoredMessage]:
         """Messages owed to Telegram, oldest first.
@@ -241,8 +279,8 @@ class Store:
         with self._lock:
             rows = self._db.execute(
                 _SELECT_MESSAGE
-                + "WHERE (m.forward_state = ? AND (m.complete OR m.received_at <= ?)) "
-                "OR (m.forward_state = ? AND m.complete) ORDER BY m.id",
+                + "WHERE m.deleted_at IS NULL AND ((m.forward_state = ? AND (m.complete OR m.received_at <= ?)) "
+                "OR (m.forward_state = ? AND m.complete)) ORDER BY m.id",
                 (PENDING, incomplete_received_before.isoformat(), SENT_INCOMPLETE),
             ).fetchall()
         return [_stored(row) for row in rows]
@@ -358,10 +396,11 @@ class Store:
             ("".join(pieces), len(parts) >= total, message_id, message_id),
         )
 
-    def _migrate(self) -> None:
+    def _migrate(self) -> bool:
+        """Bring the database up to date. Returns True if earlier versions may have left deleted text in freed space."""
         (version,) = self._db.execute("PRAGMA user_version").fetchone()
         if version == _SCHEMA_VERSION:
-            return
+            return False
         tables = {name for (name,) in self._db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         if "messages" not in tables:
             self._db.executescript(_SCHEMA)
@@ -397,7 +436,12 @@ class Store:
         if "kind" not in {row[1] for row in self._db.execute("PRAGMA table_info(messages)")}:
             self._db.execute("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'")
             self._recognise_data_messages()
+        left_in_freed_space = False
+        if "deleted_at" not in {row[1] for row in self._db.execute("PRAGMA table_info(messages)")}:
+            self._db.execute("ALTER TABLE messages ADD COLUMN deleted_at TEXT")
+            left_in_freed_space = True  # versions before the Trash deleted without overwriting
         self._db.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+        return left_in_freed_space
 
     def _recognise_data_messages(self) -> None:
         """Mark MMS notices and data SMS stored before they were told apart, whose text was their payload as letters."""
@@ -449,13 +493,14 @@ def _same_number(sender: str, search: str) -> bool:
 
 
 _SELECT_MESSAGE = (
-    "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete, m.forward_state, s.forwarding, m.archived, m.kind "
+    "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete, m.forward_state, s.forwarding, m.archived, "
+    "m.kind, m.deleted_at "
     "FROM messages m JOIN sims s ON s.iccid = m.sim_iccid "
 )
 
 
 def _stored(row: tuple) -> StoredMessage:
-    id_, label, sender, text, sent_at, complete, forward_state, forwarding, archived, kind = row
+    id_, label, sender, text, sent_at, complete, forward_state, forwarding, archived, kind, deleted_at = row
     return StoredMessage(
         id_,
         label,
@@ -467,6 +512,7 @@ def _stored(row: tuple) -> StoredMessage:
         bool(forwarding),
         bool(archived),
         kind,
+        datetime.fromisoformat(deleted_at) if deleted_at else None,
     )
 
 

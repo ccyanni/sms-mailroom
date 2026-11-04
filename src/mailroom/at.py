@@ -20,6 +20,8 @@ _UNSOLICITED = {
     "+CTZV", "+CIEV", "+CLIP", "+CRING", "+CUSD",
     "RING", "NO CARRIER", "*ATREADY", "SMS DONE", "PB DONE", "RDY",
 }
+_QUIET = 0.5  # seconds without a byte from the Modem after which nothing more is on its way
+_DRAIN_AT_MOST = 15.0
 
 
 class ATChannel:
@@ -29,8 +31,11 @@ class ATChannel:
         self._write = write
         self._buffer = b""
         self._indications: deque[str] = deque()
+        self._out_of_step = False  # a command timed out, and its answer may still be on its way
 
     def command(self, text: str, timeout: float = 10.0) -> list[str]:
+        if self._out_of_step:
+            self._resynchronise()
         log.debug("> %s", text)
         self._write(text.encode("ascii") + b"\r")
         info: list[str] = []
@@ -48,7 +53,34 @@ class ATChannel:
                 else:
                     info.append(line)
             if time.monotonic() >= deadline:
+                self._out_of_step = True
                 raise ATError(f"{text}: no response within {timeout:g}s")
+
+    def _resynchronise(self) -> None:
+        """Let a late answer to the command that timed out go by, so it is not taken as the next command's answer.
+
+        Waits for the Modem to fall quiet, then sends a bare AT. Its OK may be the late answer's, which is why the
+        Modem is let fall quiet once more afterwards. Indications that arrive meanwhile are kept.
+        """
+        self._drain()
+        self._out_of_step = False
+        self.command("AT", timeout=2.0)  # times out again if the Modem is still not answering
+        self._drain()
+
+    def _drain(self) -> None:
+        deadline = time.monotonic() + _DRAIN_AT_MOST
+        while time.monotonic() < deadline:
+            data = self._read(_QUIET)
+            if not data:
+                break
+            self._buffer += data
+        for line in self._buffer.replace(b"\r", b"\n").split(b"\n"):
+            line = line.decode("ascii", errors="replace").strip()
+            if line.split(":", 1)[0] in _UNSOLICITED:
+                self._indications.append(line)
+            elif line:
+                log.debug("< %s (late, dropped)", line)
+        self._buffer = b""
 
     def wait_indication(self, timeout: float) -> str | None:
         if not self._indications:

@@ -76,3 +76,49 @@ def test_indications_between_commands_are_returned_in_order():
 
     assert at.wait_indication(0) == '+CMTI: "SM",1'
     assert at.wait_indication(0) == "+CGEV: ME PDN ACT 1"
+
+
+class SlowModem:
+    """Answers each command at once, except the first `AT+CICCID`: that answer only comes as the next command is sent."""
+
+    ANSWERS = {"AT+CICCID": b"\r\n+ICCID: 8988600000\r\n\r\nOK\r\n", "AT+CSQ": b"\r\n+CSQ: 20,99\r\n\r\nOK\r\n"}
+
+    def __init__(self) -> None:
+        self.pending = b""
+        self.late: bytes | None = None
+        self.answered_late = False
+
+    def read(self, timeout: float) -> bytes:
+        data, self.pending = self.pending, b""
+        return data
+
+    def write(self, data: bytes) -> None:
+        command = data.decode().strip()
+        if self.late is not None:
+            self.pending += self.late
+            self.late = None
+        answer = self.ANSWERS.get(command, b"\r\nOK\r\n")
+        if command == "AT+CICCID" and not self.answered_late:
+            self.answered_late, self.late = True, answer
+        else:
+            self.pending += answer
+
+
+def test_late_answer_to_a_command_that_timed_out_is_not_taken_as_the_next_answer():
+    modem = SlowModem()
+    at = ATChannel(modem.read, modem.write)
+    with pytest.raises(ATError, match="no response"):
+        at.command("AT+CICCID", timeout=0.05)
+
+    assert at.command("AT+CSQ") == ["+CSQ: 20,99"]
+    assert at.command("AT+CICCID") == ["+ICCID: 8988600000"]
+
+
+def test_indication_arriving_after_a_timeout_is_kept():
+    at, wire = channel()
+    with pytest.raises(ATError):
+        at.command("AT+CMGL=4", timeout=0.05)
+    wire.chunks = [b'\r\n+CMTI: "SM",3\r\n', b"", b"\r\nOK\r\n", b"", b"\r\n+CSQ: 20,99\r\n\r\nOK\r\n"]
+
+    assert at.command("AT+CSQ") == ["+CSQ: 20,99"]
+    assert at.wait_indication(0) == '+CMTI: "SM",3'

@@ -83,13 +83,20 @@ def _decode(raw: bytes) -> Delivery:
     pos += 7
     length = raw[pos]
     data = raw[pos + 1:]
+    alphabet = _alphabet(dcs)
 
+    # The length counts septets for GSM 7-bit text and octets otherwise. Fewer octets than it says means
+    # part of the PDU was lost on the way from the Modem; decoding the rest would store a shortened Message.
+    octets = -(-length * 7 // 8) if alphabet == "gsm7" else length
+    if len(data) < octets:
+        raise PduError(f"user data is {len(data)} octets, its length says {octets}")
     header = b""
     if has_header:
+        if not data or 1 + data[0] > octets:
+            raise PduError("user data header is longer than the user data")
         header = data[1:1 + data[0]]
     header_octets = len(header) + 1 if has_header else 0
 
-    alphabet = _alphabet(dcs)
     port = _destination_port(header)
     if alphabet == "data" and port is not None:
         payload = data[header_octets:length]
@@ -195,7 +202,12 @@ def _elements(header: bytes):
 def _concatenation(header: bytes) -> Concatenation | None:
     for element, body in _elements(header):
         if element == 0x00 and len(body) == 3:
-            return Concatenation(body[0], body[1], body[2])
-        if element == 0x08 and len(body) == 4:
-            return Concatenation(int.from_bytes(body[:2], "big"), body[2], body[3])
+            concatenation = Concatenation(body[0], body[1], body[2])
+        elif element == 0x08 and len(body) == 4:
+            concatenation = Concatenation(int.from_bytes(body[:2], "big"), body[2], body[3])
+        else:
+            continue
+        # TS 23.040 9.2.3.24.1: an element with a sequence of 0 or beyond the total is ignored.
+        if 1 <= concatenation.sequence <= concatenation.total:
+            return concatenation
     return None

@@ -28,11 +28,15 @@ class FakeBot:
         self.polling_fails_with: Exception | None = None
         self._presses: queue.Queue[dict] = queue.Queue()
         self._next_update = 1
+        self.while_sending = None  # called once, in the middle of the next sendMessage
 
     def __call__(self, url: str, payload: dict):
         assert url.startswith(f"https://api.telegram.org/bot{TOKEN}/")
         method = url.rsplit("/", 1)[1]
         if method == "sendMessage":
+            if self.while_sending:
+                meanwhile, self.while_sending = self.while_sending, None
+                meanwhile()
             self.sent.append(payload)
             return {"message_id": 100 + len(self.sent)}
         if method == "editMessageText":
@@ -291,3 +295,23 @@ def test_token_is_kept_out_of_the_log(modem, bot, mailroom, caplog):
 
     assert TOKEN not in caplog.text
     assert re.search(r"button presses", caplog.text)
+
+
+def test_message_deleted_for_good_while_being_sent_does_not_pass_its_copy_to_a_newer_message(modem, bot, mailroom):
+    with mailroom() as page:
+        def meanwhile():
+            old_id = message_id(page, "being sent")
+            page.post(f"/messages/{old_id}/delete")
+            page.post("/trash/empty")
+            modem.deliver(build_pdu("111", "arrived meanwhile"))
+            wait_for(lambda: shown(page) == ["arrived meanwhile"])
+            assert message_id(page, "arrived meanwhile") == old_id  # SQLite reused the id; otherwise this proves nothing
+
+        bot.while_sending = meanwhile
+        old = receive(modem, bot, page, "being sent")
+        new = receive(modem, bot, page, "arrived meanwhile")  # forwarded on its own, not taken as already sent
+        assert new != old
+
+        bot.press(old, "trash")
+        wait_for(lambda: bot.answers)
+        assert shown(page) == ["arrived meanwhile"]

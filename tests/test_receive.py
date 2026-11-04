@@ -208,3 +208,14 @@ def test_new_message_indication_is_not_logged_as_a_report(modem, mailroom, caplo
         wait_for(lambda: shown_messages(page))
 
     assert "reported" not in caplog.text
+
+
+def test_pdu_read_with_a_piece_missing_is_left_on_the_sim(modem, mailroom):
+    truncated = build_pdu("12345", "the end goes missing")[:-4]
+    with mailroom() as page:
+        modem.deliver(truncated)
+        modem.deliver(build_pdu("12345", "read whole"))
+        wait_for(lambda: shown_messages(page))
+
+        assert shown_messages(page) == ["read whole"]
+    assert list(modem.stored.values()) == [truncated]

@@ -45,38 +45,52 @@ class Forwarder:
 
     def run(self, stop: threading.Event) -> None:
         delay = self._interval
+        store_failing = False
         while not stop.wait(delay):
-            delivered = self.flush()
+            try:
+                delivered = self.flush()
+            except Exception:  # the Store, not Telegram: a full disk, say. Keep trying, as for Telegram.
+                if not store_failing:
+                    log.exception("could not forward, will keep trying")
+                store_failing, delivered = True, False
+            else:
+                store_failing = False
             delay = self._interval if delivered else min(delay * 2, _MAX_RETRY_DELAY)
 
     def flush(self) -> bool:
         """Forward everything owed, oldest first. Returns False if Telegram could not be reached."""
         cutoff = datetime.now(timezone.utc) - self._part_timeout
-        for message in self._store.awaiting_forwarding(cutoff):
+        message = self._store.next_to_forward(cutoff)
+        while message is not None:
             if self._send is None or not message.forwarding:
-                self._store.set_forward_state(message.id, SKIPPED)
-                continue
-            follow_up = message.forward_state == SENT_INCOMPLETE
-            text = format_message(message, follow_up, self._language)
-            try:
-                if self._keyboard is None:
-                    copy = self._send(text)
-                else:
-                    copy = self._send(text, self._keyboard(message))
-            except Exception as exc:
-                if not self._failing:
-                    log.warning("could not forward to Telegram, will keep trying: %s", exc)
-                self._failing = True
-                self.failing_since = self.failing_since or datetime.now(timezone.utc)
+                self._store.record_forwarding(message, SKIPPED)
+            elif not self._forward(message):
                 return False
-            if self._failing:
-                log.info("forwarding to Telegram works again")
-            self._failing = False
-            self.failing_since = None
-            self.last_sent_at = datetime.now(timezone.utc)
-            if isinstance(copy, int):
-                self._store.add_telegram_copy(message.id, copy)
-            self._store.set_forward_state(message.id, SENT if message.complete else SENT_INCOMPLETE)
+            message = self._store.next_to_forward(cutoff, after_id=message.id)
+        return True
+
+    def _forward(self, message: StoredMessage) -> bool:
+        """Send one Message; False if Telegram could not be reached."""
+        follow_up = message.forward_state == SENT_INCOMPLETE
+        text = format_message(message, follow_up, self._language)
+        try:
+            if self._keyboard is None:
+                copy = self._send(text)
+            else:
+                copy = self._send(text, self._keyboard(message))
+        except Exception as exc:
+            if not self._failing:
+                log.warning("could not forward to Telegram, will keep trying: %s", exc)
+            self._failing = True
+            self.failing_since = self.failing_since or datetime.now(timezone.utc)
+            return False
+        if self._failing:
+            log.info("forwarding to Telegram works again")
+        self._failing = False
+        self.failing_since = None
+        self.last_sent_at = datetime.now(timezone.utc)
+        state = SENT if message.complete else SENT_INCOMPLETE
+        self._store.record_forwarding(message, state, copy if isinstance(copy, int) else None)
         return True
 
 

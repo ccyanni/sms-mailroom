@@ -103,6 +103,7 @@ class StoredMessage:
     archived: bool = False
     kind: str = TEXT  # TEXT, or an MMS or DATA Message whose text is not for reading
     deleted_at: datetime | None = None  # when it was moved to the Trash
+    received_at: datetime | None = None  # when its first Part was stored; with the id, tells it from a later Message given the same id
 
 
 @dataclass(frozen=True)
@@ -280,32 +281,41 @@ class Store:
         self._db.execute(f"DELETE FROM telegram_copies WHERE message_id IN ({chosen})", values)
         self._db.execute(f"DELETE FROM messages WHERE id IN ({chosen})", values)
 
-    def awaiting_forwarding(self, incomplete_received_before: datetime) -> list[StoredMessage]:
-        """Messages owed to Telegram, oldest first.
+    def next_to_forward(self, incomplete_received_before: datetime, after_id: int = 0) -> StoredMessage | None:
+        """The oldest Message owed to Telegram with an id above `after_id`, as it is right now.
 
-        That is Messages never delivered that are complete or have waited long
-        enough for their Parts, and Messages delivered incomplete that have since
-        been completed.
+        That is a Message never delivered that is complete or has waited long
+        enough for its Parts, or one delivered incomplete that has since been
+        completed. Asked for one at a time, so a Message moved to the Trash, or
+        whose SIM's Forwarding was switched off, while others were being sent is
+        seen as it is now.
         """
         with self._lock:
-            rows = self._db.execute(
+            row = self._db.execute(
                 _SELECT_MESSAGE
-                + "WHERE m.deleted_at IS NULL AND ((m.forward_state = ? AND (m.complete OR m.received_at <= ?)) "
-                "OR (m.forward_state = ? AND m.complete)) ORDER BY m.id",
-                (PENDING, incomplete_received_before.isoformat(), SENT_INCOMPLETE),
-            ).fetchall()
-        return [_stored(row) for row in rows]
+                + "WHERE m.id > ? AND m.deleted_at IS NULL "
+                "AND ((m.forward_state = ? AND (m.complete OR m.received_at <= ?)) OR (m.forward_state = ? AND m.complete)) "
+                "ORDER BY m.id LIMIT 1",
+                (after_id, PENDING, incomplete_received_before.isoformat(), SENT_INCOMPLETE),
+            ).fetchone()
+        return _stored(row) if row else None
 
-    def set_forward_state(self, message_id: int, state: str) -> None:
-        with self._lock, self._db:
-            self._db.execute("UPDATE messages SET forward_state = ? WHERE id = ?", (state, message_id))
+    def record_forwarding(self, message: StoredMessage, state: str, telegram_message_id: int | None = None) -> None:
+        """Set what became of forwarding `message`, and the Telegram copy it was sent as, in one write.
 
-    def add_telegram_copy(self, message_id: int, telegram_message_id: int) -> None:
+        Only `message` itself is changed: if it was deleted for good while it was being sent, and a newer
+        Message was given its id, nothing is.
+        """
         with self._lock, self._db:
-            self._db.execute(
-                "INSERT OR REPLACE INTO telegram_copies (telegram_message_id, message_id) VALUES (?, ?)",
-                (telegram_message_id, message_id),
-            )
+            changed = self._db.execute(
+                "UPDATE messages SET forward_state = ? WHERE id = ? AND received_at = ?",
+                (state, message.id, _utc(message.received_at)),
+            ).rowcount
+            if changed and telegram_message_id is not None:
+                self._db.execute(
+                    "INSERT OR REPLACE INTO telegram_copies (telegram_message_id, message_id) VALUES (?, ?)",
+                    (telegram_message_id, message.id),
+                )
 
     def message_for_telegram_copy(self, telegram_message_id: int) -> StoredMessage | None:
         """The Message a Telegram message is a copy of; None once that Message is deleted for good."""
@@ -529,13 +539,13 @@ def _same_number(sender: str, search: str) -> bool:
 
 _SELECT_MESSAGE = (
     "SELECT m.id, s.label, m.sender, m.text, m.sent_at, m.complete, m.forward_state, s.forwarding, m.archived, "
-    "m.kind, m.deleted_at "
+    "m.kind, m.deleted_at, m.received_at "
     "FROM messages m JOIN sims s ON s.iccid = m.sim_iccid "
 )
 
 
 def _stored(row: tuple) -> StoredMessage:
-    id_, label, sender, text, sent_at, complete, forward_state, forwarding, archived, kind, deleted_at = row
+    id_, label, sender, text, sent_at, complete, forward_state, forwarding, archived, kind, deleted_at, received_at = row
     return StoredMessage(
         id_,
         label,
@@ -548,6 +558,7 @@ def _stored(row: tuple) -> StoredMessage:
         bool(archived),
         kind,
         datetime.fromisoformat(deleted_at) if deleted_at else None,
+        datetime.fromisoformat(received_at),
     )
 
 

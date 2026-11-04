@@ -2,10 +2,13 @@
 
 import logging
 import re
+import sqlite3
+import time
 
 import pytest
 from fastapi.testclient import TestClient
 
+from mailroom.store import Store
 from mailroom.telegram import TelegramSettings
 from mailroom.web import create_app
 from support import FakeModem, FakeTransport, build_pdu, wait_for
@@ -21,10 +24,14 @@ class FakeTelegram:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict]] = []
         self.down = False
+        self.while_sending = None  # called once, in the middle of the next send
 
     def __call__(self, url: str, payload: dict) -> None:
         if self.down:
             raise OSError(f"could not connect to {url}")
+        if self.while_sending:
+            meanwhile, self.while_sending = self.while_sending, None
+            meanwhile()
         self.calls.append((url, payload))
 
     @property
@@ -154,3 +161,55 @@ def test_very_long_text_is_cut_to_what_telegram_accepts(modem, telegram, mailroo
         wait_for(lambda: telegram.calls, timeout=10)
 
     assert len(telegram.texts[0]) == 4096
+
+
+def test_a_store_failure_does_not_stop_forwarding(modem, telegram, mailroom, monkeypatch, caplog):
+    record, failures = Store.record_forwarding, []
+
+    def full_disk_once(self, *args, **kwargs):
+        if not failures:
+            failures.append(True)
+            raise sqlite3.OperationalError("database or disk is full")
+        return record(self, *args, **kwargs)
+
+    monkeypatch.setattr(Store, "record_forwarding", full_disk_once)
+    with mailroom():
+        modem.deliver(build_pdu("111", "first"))
+        wait_for(lambda: failures)
+        modem.deliver(build_pdu("111", "second"))
+        wait_for(lambda: any("second" in text for text in telegram.texts))
+
+    assert "disk is full" in caplog.text
+
+
+def queue_up(modem, telegram, page, *texts):
+    """Deliver Messages while Telegram is down, so all of them wait in the forwarding queue together."""
+    from test_archive import shown  # test_archive imports this module
+    telegram.down = True
+    for text in texts:
+        modem.deliver(build_pdu("111", text), announce=False)
+    modem.deliver(build_pdu("111", "nudge"))
+    wait_for(lambda: len(shown(page)) == len(texts) + 1)
+    telegram.down = False
+
+
+def test_message_moved_to_the_trash_while_waiting_its_turn_is_not_forwarded(modem, telegram, mailroom):
+    from test_archive import message_id
+    with mailroom() as page:
+        telegram.while_sending = lambda: page.post(f"/messages/{message_id(page, 'trash me')}/delete")
+        queue_up(modem, telegram, page, "keep me", "trash me")
+        wait_for(lambda: any("nudge" in text for text in telegram.texts))
+
+    assert not any("trash me" in text for text in telegram.texts)
+
+
+def test_message_whose_forwarding_was_switched_off_while_waiting_its_turn_is_not_forwarded(
+    modem, telegram, mailroom
+):
+    with mailroom() as page:
+        telegram.while_sending = lambda: page.post(f"/sims/{modem.iccid}/forwarding", data={"enabled": "0"})
+        queue_up(modem, telegram, page, "sent before", "held back")
+        wait_for(lambda: telegram.texts)
+        time.sleep(0.3)
+
+    assert len(telegram.texts) == 1 and "sent before" in telegram.texts[0]

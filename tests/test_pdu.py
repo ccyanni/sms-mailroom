@@ -64,3 +64,27 @@ def test_decodes_captured_parts_of_a_multi_part_message():
 def test_rejects_malformed_pdu(garbage):
     with pytest.raises(PduError):
         decode_deliver(garbage)
+
+
+@pytest.mark.parametrize("encoding", ["ucs2", "gsm7"])
+def test_rejects_pdu_whose_text_is_shorter_than_its_length_says(encoding):
+    whole = build_pdu("0912345678", "ABCDEFGH", encoding=encoding)
+
+    with pytest.raises(PduError):
+        decode_deliver(whole[:-4])  # two octets lost, as when a piece of a USB read goes missing
+
+
+def test_rejects_pdu_whose_header_is_longer_than_its_text():
+    whole = build_pdu("0912345678", "AB", part=(7, 2, 1))
+    length_at = len(whole) - 2 * (6 + 4) - 2  # the length octet, before a 6-octet header and 4 octets of text
+
+    with pytest.raises(PduError):
+        decode_deliver(whole[:length_at] + "04" + whole[length_at + 2:])
+
+
+@pytest.mark.parametrize("part", [(7, 2, 0), (7, 2, 3), (7, 0, 1)])
+def test_impossible_concatenation_header_is_ignored(part):
+    delivery = decode_deliver(build_pdu("0912345678", "on its own", part=part))
+
+    assert delivery.text == "on its own"
+    assert delivery.concatenation is None

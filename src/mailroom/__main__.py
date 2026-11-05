@@ -16,14 +16,30 @@ from mailroom.usb import UsbTransport
 from mailroom.web import create_app
 
 DEFAULT_DB = config.DATA_DIR / "mailroom.db"
+_PRIVATE = 0o600
+
+
+class _PrivateRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """A rotating log that only its owner can read: it names the Modems and SIMs."""
+
+    def _open(self):
+        stream = super()._open()
+        os.chmod(self.baseFilename, _PRIVATE)
+        return stream
+
+
+def log_handler(log_file: str, max_bytes: int = 5_000_000, backups: int = 3) -> logging.Handler:
+    Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+    for path in [Path(log_file), *(Path(f"{log_file}.{n}") for n in range(1, backups + 1))]:
+        if path.exists():
+            path.chmod(_PRIVATE)  # written before logs were kept private
+    return _PrivateRotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backups)
 
 
 def main() -> None:
+    os.umask(0o077)  # everything Mailroom writes holds the owner's Messages or names their SIMs
     log_file = os.environ.get("MAILROOM_LOG_FILE")
-    handler: logging.Handler = logging.StreamHandler()
-    if log_file:
-        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
-        handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=5_000_000, backupCount=3)
+    handler: logging.Handler = log_handler(log_file) if log_file else logging.StreamHandler()
     logging.basicConfig(
         level=os.environ.get("MAILROOM_LOG_LEVEL", "INFO"),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -48,6 +64,7 @@ def main() -> None:
         db_path,
         telegram=settings.telegram,
         telegram_buttons=settings.telegram_buttons,
+        telegram_keep=settings.telegram_keep,
         alert_after=settings.alert_after_minutes * 60,
         network_service_enabled=network_service_enabled,
         access=access,

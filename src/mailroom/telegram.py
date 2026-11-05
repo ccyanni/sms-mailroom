@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Callable
@@ -18,7 +19,14 @@ class TelegramSettings:
 
 
 class TelegramError(Exception):
-    """Telegram could not be reached or refused the call. Never contains the bot token."""
+    """Telegram could not be reached or refused the call. Never contains the bot token.
+
+    `permanent` is True when Telegram refused the call itself (a bad request), so asking again will not help.
+    """
+
+    def __init__(self, reason: str, permanent: bool = False) -> None:
+        super().__init__(reason)
+        self.permanent = permanent
 
 
 def http_post(url: str, payload: dict) -> object:
@@ -52,6 +60,10 @@ class TelegramBot:
         payload["reply_markup"] = keyboard or {"inline_keyboard": []}
         self._call("editMessageText", payload)
 
+    def delete(self, message_id: int) -> None:
+        """Delete a message the bot sent; Telegram allows it for 48 hours after sending."""
+        self._call("deleteMessage", {"chat_id": self.chat_id, "message_id": message_id})
+
     def answer(self, callback_query_id: str, text: str) -> None:
         self._call("answerCallbackQuery", {"callback_query_id": callback_query_id, "text": text})
 
@@ -69,7 +81,8 @@ class TelegramBot:
         except Exception as exc:
             # The token is part of the URL, which some errors quote.
             reason = f"{type(exc).__name__}: {exc}".replace(self._token, "<token>")
-            raise TelegramError(reason) from None
+            refused = isinstance(exc, urllib.error.HTTPError) and exc.code == 400
+            raise TelegramError(reason, permanent=refused) from None
 
 
 def telegram_sender(settings: TelegramSettings, post: HttpPost = http_post) -> Callable[[str], object]:

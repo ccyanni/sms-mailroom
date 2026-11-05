@@ -8,7 +8,7 @@
 #
 set -euo pipefail
 
-LABEL="us.b612.mailroom"
+LABEL="local.mailroom"
 PLIST="/Library/LaunchDaemons/${LABEL}.plist"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 OWNER="${SUDO_USER:-}"
@@ -19,10 +19,24 @@ if [[ $EUID -ne 0 || -z "$OWNER" || "$OWNER" == "root" ]]; then
 fi
 
 OWNER_HOME="$(dscl . -read "/Users/$OWNER" NFSHomeDirectory | awk '{print $2}')"
+if [[ -z "$OWNER_HOME" || "$OWNER_HOME" == "/" || ! -d "$OWNER_HOME" ]]; then
+  echo "Could not find the home directory of $OWNER." >&2
+  exit 1
+fi
 PYTHON="$REPO/.venv/bin/python"
-LOG_FILE="$OWNER_HOME/Library/Logs/Mailroom/mailroom.log"
+LOG_DIR="$OWNER_HOME/Library/Logs/Mailroom"
+LOG_FILE="$LOG_DIR/mailroom.log"
 
 launchctl bootout "system/$LABEL" 2>/dev/null || true
+# A service installed from this repository under an earlier label would hold the Modems too.
+for other in /Library/LaunchDaemons/*.plist; do
+  [[ -f "$other" && "$other" != "$PLIST" ]] || continue
+  if grep -q "<string>${REPO}</string>" "$other" && grep -q "<string>mailroom</string>" "$other"; then
+    launchctl bootout "system/$(basename "$other" .plist)" 2>/dev/null || true
+    rm -f "$other"
+    echo "Removed the same service installed under an earlier label: $(basename "$other" .plist)"
+  fi
+done
 if [[ "${1:-}" == "uninstall" ]]; then
   rm -f "$PLIST"
   echo "Mailroom service removed."
@@ -65,14 +79,18 @@ cat > "$PLIST" <<PLIST
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>10</integer>
-  <key>StandardErrorPath</key><string>${OWNER_HOME}/Library/Logs/Mailroom/launchd.log</string>
-  <key>StandardOutPath</key><string>${OWNER_HOME}/Library/Logs/Mailroom/launchd.log</string>
+  <key>Umask</key><integer>63</integer>
+  <key>StandardErrorPath</key><string>${LOG_DIR}/launchd.log</string>
+  <key>StandardOutPath</key><string>${LOG_DIR}/launchd.log</string>
 </dict>
 </plist>
 PLIST
 chown root:wheel "$PLIST"
 chmod 644 "$PLIST"
-sudo -u "$OWNER" mkdir -p "$OWNER_HOME/Library/Logs/Mailroom"
+# The logs name the Modems and SIMs: only the owner may read them.
+sudo -u "$OWNER" mkdir -p "$LOG_DIR"
+sudo -u "$OWNER" touch "$LOG_DIR/launchd.log"
+chmod 600 "$LOG_DIR/launchd.log"
 
 launchctl bootstrap system "$PLIST"
 echo "Mailroom service installed and started."

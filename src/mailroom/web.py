@@ -20,6 +20,7 @@ from fastapi.templating import Jinja2Templates
 from mailroom import i18n
 from mailroom.backup import Backups
 from mailroom.buttons import Buttons
+from mailroom.copy_expiry import CopyExpiry
 from mailroom.access import COOKIE, HEADER, AccessPolicy, OpenAccess
 from mailroom.forwarder import Forwarder
 from mailroom.health import HealthMonitor
@@ -83,11 +84,14 @@ def create_app(
     telegram_buttons: bool = False,
     telegram_poll_timeout: int = 25,
     telegram_poll_retry: float = 1.0,
+    telegram_keep: timedelta | None = None,
+    telegram_keep_check_every: float = 600.0,
 ) -> FastAPI:
     """`language` is used for Telegram texts and for the page until the owner picks another.
 
     A Message is deleted for good once it has been in the Trash for `trash_keep`.
     `telegram_buttons` puts Archive and Delete buttons under each forwarded Message and fetches their presses.
+    `telegram_keep` is how long a Message's Telegram copy stays before it is deleted there; None keeps it.
     """
     access = access or OpenAccess()
     language = i18n.language(language)
@@ -100,6 +104,8 @@ def create_app(
     service = Service(transport, store, forwarder, poll_interval, scan_interval)
     if buttons:
         service.add_background(buttons.run, wait_on_stop=False)
+    if bot and telegram_keep:
+        service.add_background(CopyExpiry(store, bot, telegram_keep, telegram_keep_check_every).run)
     monitor = HealthMonitor(
         store,
         service,
@@ -437,11 +443,16 @@ def _back(request: Request, drop: tuple[str, ...] = ()) -> RedirectResponse:
 
 
 def _from_another_site(request: Request) -> bool:
-    """A form posted by some other website, riding on the owner's signed-in browser."""
-    origin = request.headers.get("origin")
-    if request.method in ("GET", "HEAD") or not origin:
+    """A form posted by some other website, riding on the owner's signed-in browser.
+
+    Browsers send Origin with every POST; Sec-Fetch-Site covers one that leaves it out.
+    """
+    if request.method in ("GET", "HEAD"):
         return False
-    return urlsplit(origin).netloc != request.headers.get("host")
+    origin = request.headers.get("origin")
+    if origin:
+        return urlsplit(origin).netloc != request.headers.get("host")
+    return request.headers.get("sec-fetch-site") in ("cross-site", "same-site")
 
 
 def _with_links(text: str) -> dict:

@@ -4,6 +4,7 @@ import logging
 import queue
 import re
 import time
+import urllib.error
 
 import pytest
 from fastapi.testclient import TestClient
@@ -30,6 +31,10 @@ class FakeBot:
         self._presses: queue.Queue[dict] = queue.Queue()
         self._next_update = 1
         self.while_sending = None  # called once, in the middle of the next sendMessage
+        self.deleted: list[int] = []
+        self.delete_attempts: list[int] = []
+        self.too_old_to_delete: set[int] = set()  # Telegram lets a bot delete only what it sent in the last 48 hours
+        self.deleting_fails_with: Exception | None = None
 
     def __call__(self, url: str, payload: dict):
         assert url.startswith(f"https://api.telegram.org/bot{TOKEN}/")
@@ -43,6 +48,14 @@ class FakeBot:
         if method == "editMessageText":
             self.edits[payload["message_id"]] = payload
             return {"message_id": payload["message_id"]}
+        if method == "deleteMessage":
+            self.delete_attempts.append(payload["message_id"])
+            if self.deleting_fails_with:
+                raise self.deleting_fails_with
+            if payload["message_id"] in self.too_old_to_delete:
+                raise urllib.error.HTTPError(url, 400, "Bad Request", {}, None)
+            self.deleted.append(payload["message_id"])
+            return True
         if method == "answerCallbackQuery":
             self.answers.append(payload)
             return True

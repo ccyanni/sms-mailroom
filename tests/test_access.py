@@ -143,6 +143,14 @@ def test_form_posted_from_another_site_is_rejected_even_with_a_valid_token(cloud
     assert SECRET_TEXT in page.get("/", headers=signed(cloudflare.token())).text
 
 
+@pytest.mark.parametrize("fetched_from", ["cross-site", "same-site"])
+def test_form_from_another_site_without_an_origin_is_rejected(cloudflare, page, fetched_from):
+    headers = {**signed(cloudflare.token()), "Sec-Fetch-Site": fetched_from}  # a browser that left out Origin
+
+    assert_rejected(page.post("/messages/1/delete", headers=headers))
+    assert SECRET_TEXT in page.get("/", headers=signed(cloudflare.token())).text
+
+
 def test_form_posted_from_the_page_itself_is_accepted(cloudflare, page):
     headers = {**signed(cloudflare.token()), "Origin": "http://testserver"}
 

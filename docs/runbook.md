@@ -10,29 +10,32 @@
 
 | 項目 | 位置 |
 |---|---|
-| SMS Mailroom 服務 | launchd 系統服務 `us.b612.mailroom`（`/Library/LaunchDaemons/us.b612.mailroom.plist`），以擁有者的帳號執行，使用這個專案的 `.venv` |
+| SMS Mailroom 服務 | launchd 系統服務 `local.mailroom`（`/Library/LaunchDaemons/local.mailroom.plist`），以擁有者的帳號執行，使用這個專案的 `.venv` |
 | 網頁 | `https://mailroom.example.com`，經由 Cloudflare Tunnel 連到 `127.0.0.1:8000`，由 Cloudflare Access 保護 |
 | Tunnel | `cloudflared`，另一個 launchd 系統服務（`com.cloudflare.cloudflared`） |
 | 設定檔 | `~/Library/Application Support/Mailroom/config.toml`（僅限本人讀取，內含 Telegram 機器人的 token） |
 | 資料庫 | `~/Library/Application Support/Mailroom/mailroom.db` |
 | 備份 | `~/Library/Application Support/Mailroom/backups/`，每天一份，保留 14 份，僅限本人讀取 |
-| 紀錄檔 | `~/Library/Logs/Mailroom/mailroom.log`（滿 5 MB 自動輪替，保留三份舊檔） |
+| 紀錄檔 | `~/Library/Logs/Mailroom/mailroom.log`（滿 5 MB 自動輪替，保留三份舊檔；裡面有模組和 SIM 的識別碼，僅限本人讀取） |
 
 兩個服務都在開機時啟動，不需要先登入；停止時會自動重新啟動。
 
 **如果這台 Mac 開啟了 FileVault**，重開機或停電之後它會先停在解鎖畫面，要有人在現場輸入密碼，macOS 才會繼續開機，在那之前兩個服務都不會執行，也無法從遠端連線。可以用 `fdesetup status` 查看是否開啟。要讓機器在停電後完全自動恢復，必須關閉 FileVault，代價是磁碟不再加密；只是要自己重開機一次的話，可以用 `sudo fdesetup authrestart`，它會自動通過那一次的解鎖畫面。
+
+這台 Mac mini 刻意不開 FileVault（2026-11-05 決定）：停電後能自動恢復，比機器被偷的小機率更重要。拿走這台 Mac 或它的硬碟的人，可以讀到簡訊、備份和機器人 token。
 
 ## 日常操作
 
 - **確認是否正常運作：** 打開網頁，切到「狀態」分頁。每張 SIM 一張卡片，顯示業者、訊號和註冊狀態；下方列出接著的模組，以及系統本身的狀態（服務、Telegram、macOS 網路服務、USB 連線、存取保護）。有異常時最上方會出現黃色方框，「狀態」分頁的圖示上也會有紅點，同一則內容會發到 Telegram。
 - **整理簡訊：** 在「簡訊」分頁點一則簡訊可以展開全文。有用的按「封存」，移到「已封存」；沒用的按「刪除」，它會移到「垃圾桶」。要一次刪除多則，按「選取」後勾選，或先搜尋再按「全選」。
 - **垃圾桶：** 刪除的簡訊會在垃圾桶保留 30 天，之後自動永久刪除；服務當天沒有執行的話，下次啟動時補做。在垃圾桶裡可以「復原」，簡訊會回到原本的收件匣或已封存；也可以馬上「永久刪除」單則、勾選的多則，或「清空垃圾桶」，這些都要再確認一次。垃圾桶裡的簡訊不會轉發；復原後如果還沒轉發過，會照常轉發。
-- **在 Telegram 整理簡訊：** 每則轉發的簡訊下方有「封存」和「刪除」按鈕。按「刪除」會把簡訊移到垃圾桶，Telegram 上那則會拿掉內容，只留寄件者和時間，並改成「復原」按鈕；按「復原」，內容和按鈕都會回來。按鈕只在你和機器人的私人聊天室裡、由你本人按下才有作用，其他人按了不會有任何反應。在網頁上做的變更不會即時反映到 Telegram 上，但之後在 Telegram 按任何按鈕時，都會以簡訊當下的狀態為準。永久刪除的簡訊，按它的按鈕只會顯示「已永久刪除」。
+- **在 Telegram 整理簡訊：** 每則轉發的簡訊下方有「封存」和「刪除」按鈕。按「刪除」會把簡訊移到垃圾桶，Telegram 上那則會拿掉內容，只留寄件者和時間，並改成「復原」按鈕；按「復原」，內容和按鈕都會回來。按鈕只在你和機器人的私人聊天室裡、由你本人按下才有作用，其他人按了不會有任何反應。在網頁上做的變更不會即時反映到 Telegram 上，但之後在 Telegram 按任何按鈕時，都會以簡訊當下的狀態為準。在網頁上永久刪除的簡訊，它在 Telegram 上的那則會在十分鐘內刪除。
 - **找某個人寄來的簡訊：** 在搜尋框輸入對方的電話號碼。同一支手機寄到不同 SIM 時，號碼可能顯示成 `0933…`、`+886933…` 或 `00886933…`，用哪一種寫法搜尋都找得到。
 - **語言與外觀：** 右上角的齒輪圖示可以切換中文／English，以及跟隨系統、淺色、深色。
 - **啟動通知：** 服務每次啟動後約 15 秒，會在 Telegram 發一則「🟢 Mailroom 已啟動」，說明是電腦剛重新開機還是只有服務重啟，以及接上幾片模組、幾張 SIM 正常收訊。沒有預期卻收到這則通知，表示服務當掉後自動重啟了，請查看紀錄。
+- **Telegram 上的簡訊一天後刪除：** 簡訊轉發 24 小時後，Telegram 聊天室裡的那則會被刪除，網頁上的簡訊不受影響。原因見「已知行為」中關於機器人 token 的說明。Telegram 只允許機器人刪除 48 小時內自己發出的訊息，更早的（例如加入這個功能之前轉發的，或服務停了兩天期間累積的）會留著，要自己清：在和機器人的聊天室按 ⋯ →「清除聊天記錄」。
 - **查看紀錄：** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
-- **重新啟動**（修改 `config.toml` 或更新程式之後）：`sudo launchctl kickstart -k system/us.b612.mailroom`
+- **重新啟動**（修改 `config.toml` 或更新程式之後）：`sudo launchctl kickstart -k system/local.mailroom`
 - **停止並移除服務：** `sudo scripts/install-service.sh uninstall`
 - **安裝或重新安裝服務：** `sudo scripts/install-service.sh`。`config.toml` 裡沒有 `[access]` 設定時，腳本會拒絕安裝，因為那樣 Tunnel 會把網頁直接暴露在外。
 - **更新程式：** 取得新版程式碼，執行 `uv sync`，執行 `uv run pytest`，然後重新啟動服務。
@@ -48,14 +51,14 @@
 還原的步驟：
 
 ```bash
-sudo launchctl bootout system/us.b612.mailroom            # 停止服務
+sudo launchctl bootout system/local.mailroom              # 停止服務
 cd ~/Library/Application\ Support/Mailroom
 mv mailroom.db mailroom.db.broken                         # 保留現有的資料庫，以防萬一
 cp backups/mailroom-2026-10-12.db mailroom.db             # 換成要還原的那一天
 cd <專案資料夾> && sudo scripts/install-service.sh         # 重新啟動服務
 ```
 
-備份之後才收到的簡訊不在備份裡；它們在 Telegram 聊天室中仍然看得到。
+備份之後才收到的簡訊不在備份裡；最近一天內的，在 Telegram 聊天室中仍然看得到。
 
 ## 硬體
 
@@ -80,6 +83,7 @@ language = "zh"     # 選填；"zh" 或 "en"。Telegram 訊息用這個語言，
 token = "<向 @BotFather 申請的機器人 token>"
 chat_id = "<擁有者的聊天室 ID>"
 buttons = true      # 選填；false 會拿掉轉發簡訊下方的「封存」「刪除」按鈕
+delete_after_hours = 24   # 選填；轉發幾小時後從 Telegram 刪除，須小於 48；0 表示不刪除
 
 [access]
 team_domain = "<團隊名稱>.cloudflareaccess.com"
@@ -110,5 +114,6 @@ keep = 14           # 選填；保留幾份
 - 模組偶爾會回報讀取錯誤，SMS Mailroom 會重試並繼續運作。如果一連串讀取錯誤之後模組就消失，問題多半出在 USB 集線器或它的電源。
 - 多媒體簡訊（MMS）只會顯示一段說明，不會有內容：手機要用行動數據另外下載內容，而 SMS Mailroom 不使用行動數據。給手機程式讀取的資料簡訊也一樣只顯示說明。兩種都會照常轉發到 Telegram，也找得到寄件者，但搜尋不到內容。
 - 漫遊中的 SIM 有時會晚幾分鐘才收到簡訊，或同一則收到兩次。寄件者、電信網路標記的時間和內容都相同的重複簡訊，只會存一筆。
-- Telegram 按鈕的事件由 SMS Mailroom 主動向 Telegram 取得（long polling），網路上沒有任何東西能連進這台 Mac，網頁也仍在 Cloudflare Access 後面。要注意兩件事：一，能操作你 Telegram 的人，也能把簡訊移到垃圾桶，但無法永久刪除；永久刪除只能在網頁上做。二，拿到機器人 token 的人雖然無法假冒你按按鈕，但可以設定 webhook 或自己去取事件，讓按鈕失效。按鈕失效超過異常通知的等待時間，會發一則異常通知；如果不是你自己設定的，請用 `@BotFather` 換一個 token。服務執行中如果在瀏覽器打開 `getUpdates` 網址，也會短暫搶走按鈕事件。
+- Telegram 按鈕的事件由 SMS Mailroom 主動向 Telegram 取得（long polling），網路上沒有任何東西能連進這台 Mac，網頁也仍在 Cloudflare Access 後面。要注意兩件事：一，能操作你 Telegram 的人，也能把簡訊移到垃圾桶，但無法永久刪除；永久刪除只能在網頁上做。二，服務執行中如果在瀏覽器打開 `getUpdates` 網址，會短暫搶走按鈕事件。
+- **機器人 token 和簡訊本身一樣敏感。** 拿到 token 的人可以把你和機器人聊天室裡的每一則訊息逐一轉發給自己，你這邊看不出任何跡象，也不會有異常通知。這就是 Telegram 上的簡訊一天後刪除的原因：token 外洩時，最多只會洩漏最近一天的簡訊。拿到 token 的人無法假冒你按按鈕；如果對方設定 webhook 或自己去取事件，按鈕會失效，超過異常通知的等待時間就會發一則異常通知。懷疑 token 外洩時，用 `@BotFather` 的 `/revoke` 換一個新的，填進 `config.toml` 後重新啟動服務。
 - 刪除的簡訊在垃圾桶裡還能復原 30 天。永久刪除後，內容會從資料庫檔案中清除，但每日備份裡還留有副本，直到那些備份被輪替掉為止（預設保留 14 天）。所以一則刪除的簡訊，最久大約 44 天後才會完全消失。

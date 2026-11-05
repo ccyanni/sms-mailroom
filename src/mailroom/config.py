@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tomllib
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 
 from mailroom.access import AccessSettings
@@ -18,6 +19,7 @@ DEFAULT_PATH = DATA_DIR / "config.toml"
 class Config:
     telegram: TelegramSettings | None = None
     telegram_buttons: bool = True  # Archive and Delete buttons under each forwarded Message
+    telegram_keep: timedelta | None = timedelta(hours=24)  # how long copies stay in Telegram; None: for good
     alert_after_minutes: float = 3.0
     access: AccessSettings | None = None
     allow_unauthenticated: bool = False  # local development only
@@ -46,6 +48,7 @@ def load(path: Path | None = None) -> Config:
     return Config(
         telegram=TelegramSettings(str(token), str(chat_id)) if token else None,
         telegram_buttons=bool(telegram.get("buttons", True)),
+        telegram_keep=_telegram_keep(path, telegram.get("delete_after_hours", 24)),
         alert_after_minutes=float(data.get("alerts", {}).get("after_minutes", 3.0)),
         access=AccessSettings(_team_domain(str(team_domain)), str(audience)) if team_domain else None,
         allow_unauthenticated=bool(access.get("allow_unauthenticated", False)),
@@ -53,6 +56,13 @@ def load(path: Path | None = None) -> Config:
         backup_dir=Path(data.get("backup", {}).get("directory", DATA_DIR / "backups")).expanduser(),
         backup_keep=int(data.get("backup", {}).get("keep", 14)),
     )
+
+
+def _telegram_keep(path: Path, hours: object) -> timedelta | None:
+    """0 keeps copies in Telegram for good; Telegram lets a bot delete what it sent for 48 hours only."""
+    if isinstance(hours, bool) or not isinstance(hours, (int, float)) or not 0 <= hours < 48:
+        raise ValueError(f"{path}: [telegram] delete_after_hours must be 0 (never) or under 48, not {hours!r}")
+    return timedelta(hours=hours) if hours else None
 
 
 def _language(path: Path, value: object) -> str:

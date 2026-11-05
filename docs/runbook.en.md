@@ -8,29 +8,32 @@ How to run, check and change the SMS Mailroom installation on the Mac mini. Voca
 
 | Piece | Where |
 |---|---|
-| SMS Mailroom service | launchd daemon `us.b612.mailroom` (`/Library/LaunchDaemons/us.b612.mailroom.plist`), running as the owner's account from this repository's `.venv` |
+| SMS Mailroom service | launchd daemon `local.mailroom` (`/Library/LaunchDaemons/local.mailroom.plist`), running as the owner's account from this repository's `.venv` |
 | Web page | `https://mailroom.example.com`, served through a Cloudflare Tunnel to `127.0.0.1:8000` and guarded by Cloudflare Access |
 | Tunnel | `cloudflared`, its own launchd daemon (`com.cloudflare.cloudflared`) |
 | Settings | `~/Library/Application Support/Mailroom/config.toml` (private; holds the Telegram bot token) |
 | Database | `~/Library/Application Support/Mailroom/mailroom.db` |
 | Backups | `~/Library/Application Support/Mailroom/backups/`, one per day, 14 kept, readable only by the owner |
-| Logs | `~/Library/Logs/Mailroom/mailroom.log` (rotated at 5 MB, three old files kept) |
+| Logs | `~/Library/Logs/Mailroom/mailroom.log` (rotated at 5 MB, three old files kept; readable only by the owner, since they name the Modems and SIMs) |
 
 Both daemons start at boot, before anyone logs in, and restart if they stop.
 
 **If FileVault is on**, the Mac stops at an unlock screen after a reboot or a power cut and waits for someone to type the password at the machine. Until then macOS has not started: neither daemon runs and the Mac cannot be reached remotely. `fdesetup status` shows whether it is on. For the machine to come back entirely by itself after a power cut, FileVault has to be off, at the cost of an unencrypted disk; to restart it yourself once, `sudo fdesetup authrestart` passes the unlock screen for that one restart.
+
+On this Mac mini FileVault is off on purpose (decided 2026-11-05): coming back by itself after a power cut matters more than the small chance of the machine being stolen. Someone who takes the Mac or its disk can read the Messages, the backups and the bot token.
 
 ## Everyday operations
 
 - **Is it working?** Open the web page and go to Status. Each SIM has a card with its operator, signal and registration; below are the attached Modems and the state of the system itself (service, Telegram, macOS network service, USB connection, page protection). Anything wrong is listed in a yellow box at the top, marks the Status tab with a red dot, and has also been sent to Telegram.
 - **Tidying Messages:** under Messages, tap a Message to open it. Archive what is worth keeping; delete the rest, which moves it to the Trash. To delete several at once, tap Select and tick them, or search first and tap Select all.
 - **Trash:** a deleted Message waits in the Trash for 30 days, then is deleted for good by itself; if the service was not running that day, it happens the next time it starts. From the Trash, Restore puts a Message back in the inbox or the Archive, wherever it was; Delete for good removes one Message, the ticked ones, or with Empty the Trash all of them, each after a second confirmation. A Message in the Trash is not forwarded; restored, it is forwarded if it had not been yet.
-- **Tidying from Telegram:** every forwarded Message has Archive and Delete buttons under it. Delete moves the Message to the Trash; its Telegram copy loses the text, keeping only the sender and time, and offers Restore, which brings the text and buttons back. The buttons work only in your private chat with the bot and only when you press them; anyone else pressing them gets no response. Changes made on the page are not reflected in Telegram right away, but any button pressed later acts on the Message as it is then. Buttons under a Message deleted for good only say it is gone.
+- **Tidying from Telegram:** every forwarded Message has Archive and Delete buttons under it. Delete moves the Message to the Trash; its Telegram copy loses the text, keeping only the sender and time, and offers Restore, which brings the text and buttons back. The buttons work only in your private chat with the bot and only when you press them; anyone else pressing them gets no response. Changes made on the page are not reflected in Telegram right away, but any button pressed later acts on the Message as it is then. A Message deleted for good on the page has its Telegram copy deleted within ten minutes.
 - **Messages from one person:** search for their phone number. The same phone can show up as `0933…`, `+886933…` or `00886933…` depending on the SIM it wrote to; any of these finds them all.
 - **Language and appearance:** the gear at the top right switches between 中文 and English, and between following the system, light and dark.
 - **Start notice:** about 15 seconds after the service starts, Telegram receives "🟢 Mailroom started", saying whether the Mac had just booted or only the service restarted, and how many Modems are attached and SIMs receiving. Getting one you did not expect means the service crashed and restarted itself; read the log.
+- **Telegram copies are deleted after a day:** 24 hours after a Message was forwarded, its copy is deleted from the Telegram chat; the Message stays on the page. See the bot token note under Known behaviour for why. Telegram lets a bot delete only what it sent in the last 48 hours, so copies older than that (for instance everything forwarded before this was added, or while the service was down for two days) stay until you clear the chat yourself: in the chat with the bot, ⋯ → Clear history.
 - **Read the log:** `tail -f ~/Library/Logs/Mailroom/mailroom.log`
-- **Restart** (after editing `config.toml` or updating the code): `sudo launchctl kickstart -k system/us.b612.mailroom`
+- **Restart** (after editing `config.toml` or updating the code): `sudo launchctl kickstart -k system/local.mailroom`
 - **Stop and remove the service:** `sudo scripts/install-service.sh uninstall`
 - **Install or reinstall the service:** `sudo scripts/install-service.sh`. It refuses to install while `config.toml` has no `[access]` settings, because the tunnel would then expose the page.
 - **Update the code:** pull, run `uv sync`, run `uv run pytest`, then restart the service.
@@ -46,14 +49,14 @@ Backups stay on the same computer. They recover a damaged or mistakenly emptied 
 To restore:
 
 ```bash
-sudo launchctl bootout system/us.b612.mailroom            # stop the service
+sudo launchctl bootout system/local.mailroom              # stop the service
 cd ~/Library/Application\ Support/Mailroom
 mv mailroom.db mailroom.db.broken                         # keep the current database, just in case
 cp backups/mailroom-2026-10-12.db mailroom.db             # put back the day you want
 cd <the repository> && sudo scripts/install-service.sh    # start the service again
 ```
 
-Messages received after that backup are not in it; they are still in the Telegram chat.
+Messages received after that backup are not in it; those from the last day are still in the Telegram chat.
 
 ## Hardware
 
@@ -78,6 +81,7 @@ language = "zh"     # optional; "zh" or "en". Used for Telegram texts, and for t
 token = "<bot token from @BotFather>"
 chat_id = "<the owner's chat id>"
 buttons = true      # optional; false drops the Archive and Delete buttons under forwarded Messages
+delete_after_hours = 24   # optional; when copies are deleted from Telegram, under 48; 0 keeps them
 
 [access]
 team_domain = "<team>.cloudflareaccess.com"
@@ -108,5 +112,6 @@ Without `[telegram]`, Messages are stored but not forwarded. Without `[access]`,
 - A Modem occasionally reports a read error; SMS Mailroom retries and carries on. A burst of them just before a Modem disappears points at the USB hub or its power supply.
 - A multimedia message (MMS) is shown only as a notice, without its content: a phone downloads that over mobile data, which SMS Mailroom never uses. A data message meant for an app on a phone is shown as a notice too. Both are forwarded to Telegram as usual and can be found by sender, but not by content.
 - Roaming SIMs sometimes deliver an SMS minutes late, or twice. A repeat with the same sender, network time and text is stored once.
-- SMS Mailroom fetches Telegram button presses itself (long polling), so nothing on the internet can reach this Mac and the page stays behind Cloudflare Access. Two things to keep in mind. Anyone who can use your Telegram can move Messages to the Trash, though not delete them for good; that is only possible on the page. Anyone holding the bot token cannot press buttons as you, but can set a webhook or fetch the presses themselves, which stops the buttons; if that lasts longer than the Alert delay, an Alert says so, and unless you did it yourself, replace the token with `@BotFather`. Opening the `getUpdates` address in a browser while the service runs also takes the presses for a moment.
+- SMS Mailroom fetches Telegram button presses itself (long polling), so nothing on the internet can reach this Mac and the page stays behind Cloudflare Access. Two things to keep in mind. Anyone who can use your Telegram can move Messages to the Trash, though not delete them for good; that is only possible on the page. Opening the `getUpdates` address in a browser while the service runs takes the presses for a moment.
+- **The bot token is as sensitive as the Messages.** Anyone holding it can forward every message in your chat with the bot to themselves, one by one, without anything showing on your side and without an Alert. This is why copies are deleted from Telegram after a day: a leaked token then gives away at most the last day. A token holder cannot press buttons as you; if they set a webhook or fetch the presses themselves, the buttons stop, and once that lasts longer than the Alert delay an Alert says so. If you suspect the token has leaked, replace it with `@BotFather` (`/revoke`), put the new one in `config.toml` and restart the service.
 - A deleted Message can be restored from the Trash for 30 days. Once deleted for good, its text is cleared from the database file, but the daily backups still hold a copy until they are rotated out (14 are kept by default). A deleted Message is therefore fully gone after about 44 days at most.

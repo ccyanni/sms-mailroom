@@ -50,13 +50,16 @@ CREATE TABLE parts (
 );
 """
 
-# Which Telegram message is a copy of which Message, so a button pressed under a copy finds its Message.
-# Message ids are reused once the newest Message is deleted for good, so a button never carries one.
+# Which Telegram message is a copy of which Message, so a button pressed under a copy finds its Message,
+# and when it was sent, so it can be deleted from Telegram in time. Message ids are reused once the newest
+# Message is deleted for good, so a button never carries one, and a copy of a Message deleted for good keeps
+# no message_id, only what is needed to delete it from Telegram.
 _COPIES_SCHEMA = """
 CREATE TABLE IF NOT EXISTS telegram_copies (
     telegram_message_id INTEGER PRIMARY KEY,
-    message_id          INTEGER NOT NULL
-);
+    message_id          INTEGER,
+    sent_at             TEXT NOT NULL
+)
 """
 
 _ALERTS_SCHEMA = """
@@ -141,7 +144,8 @@ class Store:
             if columns and "kind" not in columns:
                 self._db.execute("DROP TABLE alerts")  # an earlier layout; alerts are rebuilt as problems recur
             self._db.executescript(_ALERTS_SCHEMA)
-            self._db.executescript(_COPIES_SCHEMA)
+            self._migrate_copies()
+            self._db.execute(_COPIES_SCHEMA)
         if left_in_freed_space:
             with self._lock:
                 self._db.execute("VACUUM")  # rewrites the file without the space earlier versions freed
@@ -278,7 +282,7 @@ class Store:
     def _purge(self, condition: str, values: tuple) -> None:
         chosen = f"SELECT id FROM messages WHERE deleted_at IS NOT NULL AND {condition}"
         self._db.execute(f"DELETE FROM parts WHERE message_id IN ({chosen})", values)
-        self._db.execute(f"DELETE FROM telegram_copies WHERE message_id IN ({chosen})", values)
+        self._db.execute(f"UPDATE telegram_copies SET message_id = NULL WHERE message_id IN ({chosen})", values)
         self._db.execute(f"DELETE FROM messages WHERE id IN ({chosen})", values)
 
     def next_to_forward(self, incomplete_received_before: datetime, after_id: int = 0) -> StoredMessage | None:
@@ -313,9 +317,24 @@ class Store:
             ).rowcount
             if changed and telegram_message_id is not None:
                 self._db.execute(
-                    "INSERT OR REPLACE INTO telegram_copies (telegram_message_id, message_id) VALUES (?, ?)",
-                    (telegram_message_id, message.id),
+                    "INSERT OR REPLACE INTO telegram_copies (telegram_message_id, message_id, sent_at) VALUES (?, ?, ?)",
+                    (telegram_message_id, message.id, _utc(datetime.now(timezone.utc))),
                 )
+
+    def telegram_copies_to_delete(self, sent_before: datetime) -> list[int]:
+        """Telegram copies sent before `sent_before`, and copies of Messages deleted for good."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT telegram_message_id FROM telegram_copies WHERE sent_at <= ? OR message_id IS NULL "
+                "ORDER BY telegram_message_id",
+                (_utc(sent_before),),
+            ).fetchall()
+        return [telegram_message_id for (telegram_message_id,) in rows]
+
+    def forget_telegram_copy(self, telegram_message_id: int) -> None:
+        """The copy is no longer on Telegram, or can no longer be deleted from it."""
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM telegram_copies WHERE telegram_message_id = ?", (telegram_message_id,))
 
     def message_for_telegram_copy(self, telegram_message_id: int) -> StoredMessage | None:
         """The Message a Telegram message is a copy of; None once that Message is deleted for good."""
@@ -440,6 +459,23 @@ class Store:
             "sent_at = (SELECT MIN(sent_at) FROM parts WHERE message_id = ?) WHERE id = ?",
             ("".join(pieces), len(parts) >= total, message_id, message_id),
         )
+
+    def _migrate_copies(self) -> None:
+        """Give copies recorded before they had a sent time one, and let them outlive their Message."""
+        columns = {row[1] for row in self._db.execute("PRAGMA table_info(telegram_copies)")}
+        if not columns or "sent_at" in columns:
+            return
+        if not self._db.in_transaction:
+            self._db.execute("BEGIN")  # so the table is never left half rebuilt
+        self._db.execute("ALTER TABLE telegram_copies RENAME TO telegram_copies_before")
+        self._db.execute(_COPIES_SCHEMA)
+        self._db.execute(
+            "INSERT INTO telegram_copies (telegram_message_id, message_id, sent_at) "
+            "SELECT c.telegram_message_id, m.id, COALESCE(m.received_at, ?) "
+            "FROM telegram_copies_before c LEFT JOIN messages m ON m.id = c.message_id",
+            (_utc(datetime.now(timezone.utc)),),
+        )
+        self._db.execute("DROP TABLE telegram_copies_before")
 
     def _migrate(self) -> bool:
         """Bring the database up to date. Returns True if earlier versions may have left deleted text in freed space."""

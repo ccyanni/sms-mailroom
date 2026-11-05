@@ -1,8 +1,8 @@
-"""Deletes Telegram copies of Messages once they are a day old.
+"""Deletes Telegram copies of Messages some hours after they were sent, when the owner switches it on.
 
 Anyone holding the bot token can forward every message in the owner's chat with the bot to themselves, and
-nothing would show it. Deleting copies keeps what they could collect to the last day. The Messages stay on the
-page; Telegram lets a bot delete what it sent for 48 hours, so a copy older than that is left in the chat.
+nothing would show it. Deleting copies keeps what they could collect to those last hours. The Messages stay on
+the page; Telegram lets a bot delete what it sent for 48 hours, so a copy older than that is left in the chat.
 """
 
 from __future__ import annotations

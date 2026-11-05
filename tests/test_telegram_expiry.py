@@ -1,4 +1,4 @@
-"""Telegram copies are deleted a day after they were sent, so a leaked bot token cannot collect the history."""
+"""When switched on, Telegram copies are deleted some hours after they were sent, so a leaked bot token cannot collect the history."""
 
 import sqlite3
 import time
@@ -72,25 +72,32 @@ def test_without_a_keep_time_copies_are_never_deleted(modem, bot, mailroom):
     assert bot.delete_attempts == []
 
 
-def test_copies_are_deleted_after_24_hours_unless_the_config_says_otherwise(tmp_path):
+def write_config(tmp_path, lines: str):
     path = tmp_path / "config.toml"
-    path.write_text('[telegram]\ntoken = "1:a"\nchat_id = 1\n')
-    assert config.load(path).telegram_keep == timedelta(hours=24)
-
-    path.write_text('[telegram]\ntoken = "1:a"\nchat_id = 1\ndelete_after_hours = 6\n')
-    assert config.load(path).telegram_keep == timedelta(hours=6)
-
-    path.write_text('[telegram]\ntoken = "1:a"\nchat_id = 1\ndelete_after_hours = 0\n')
-    assert config.load(path).telegram_keep is None
+    path.write_text('[telegram]\ntoken = "1:a"\nchat_id = 1\n' + lines)
+    return path
 
 
-@pytest.mark.parametrize("hours", [48, 100, -1])
+def test_copies_are_kept_unless_deleting_them_is_switched_on(tmp_path):
+    assert config.load(write_config(tmp_path, "")).telegram_keep is None
+    assert config.load(write_config(tmp_path, "delete_copies = false\ndelete_after_hours = 6\n")).telegram_keep is None
+
+
+def test_switched_on_copies_are_deleted_after_24_hours_unless_the_config_says_otherwise(tmp_path):
+    assert config.load(write_config(tmp_path, "delete_copies = true\n")).telegram_keep == timedelta(hours=24)
+    assert config.load(write_config(tmp_path, "delete_copies = true\ndelete_after_hours = 1\n")).telegram_keep == timedelta(hours=1)
+    assert config.load(write_config(tmp_path, "delete_copies = true\ndelete_after_hours = 47\n")).telegram_keep == timedelta(hours=47)
+
+
+@pytest.mark.parametrize("hours", ["0", "48", "100", "-1", "1.5", '"6"', "true"])
 def test_keep_time_telegram_would_not_honour_is_refused(tmp_path, hours):
-    path = tmp_path / "config.toml"
-    path.write_text(f'[telegram]\ntoken = "1:a"\nchat_id = 1\ndelete_after_hours = {hours}\n')
-
     with pytest.raises(ValueError, match="delete_after_hours"):
-        config.load(path)
+        config.load(write_config(tmp_path, f"delete_copies = true\ndelete_after_hours = {hours}\n"))
+
+
+def test_switch_must_be_true_or_false(tmp_path):
+    with pytest.raises(ValueError, match="delete_copies"):
+        config.load(write_config(tmp_path, 'delete_copies = "yes"\n'))
 
 
 def test_copies_recorded_before_they_had_a_sent_time_are_dated_by_their_message(tmp_path):

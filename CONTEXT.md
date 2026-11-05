@@ -37,7 +37,7 @@ What the owner does to a SIM that is no longer used: it leaves the Status page, 
 _Avoid_: Remove, delete, unregister
 
 **Forwarding**:
-Delivering a copy of a Message to the owner's Telegram chat. It is switched on or off per SIM. Each copy carries buttons to archive the Message or move it to the Trash; a copy of a Message in the Trash keeps only its sender and time. A copy is deleted from Telegram a day after it was sent, or as soon as its Message is deleted for good; the Message itself stays.
+Delivering a copy of a Message to the owner's Telegram chat. It is switched on or off per SIM. Each copy carries buttons to archive the Message or move it to the Trash; a copy of a Message in the Trash keeps only its sender and time. When the owner switches it on, a copy is deleted from Telegram a set number of hours after it was sent, or as soon as its Message is deleted for good; the Message itself stays.
 _Avoid_: Relay, push, notification
 
 **Alert**:

@@ -19,7 +19,7 @@ DEFAULT_PATH = DATA_DIR / "config.toml"
 class Config:
     telegram: TelegramSettings | None = None
     telegram_buttons: bool = True  # Archive and Delete buttons under each forwarded Message
-    telegram_keep: timedelta | None = timedelta(hours=24)  # how long copies stay in Telegram; None: for good
+    telegram_keep: timedelta | None = None  # how long copies stay in Telegram before they are deleted; None: for good
     alert_after_minutes: float = 3.0
     access: AccessSettings | None = None
     allow_unauthenticated: bool = False  # local development only
@@ -48,7 +48,7 @@ def load(path: Path | None = None) -> Config:
     return Config(
         telegram=TelegramSettings(str(token), str(chat_id)) if token else None,
         telegram_buttons=bool(telegram.get("buttons", True)),
-        telegram_keep=_telegram_keep(path, telegram.get("delete_after_hours", 24)),
+        telegram_keep=_telegram_keep(path, telegram.get("delete_copies", False), telegram.get("delete_after_hours", 24)),
         alert_after_minutes=float(data.get("alerts", {}).get("after_minutes", 3.0)),
         access=AccessSettings(_team_domain(str(team_domain)), str(audience)) if team_domain else None,
         allow_unauthenticated=bool(access.get("allow_unauthenticated", False)),
@@ -58,11 +58,16 @@ def load(path: Path | None = None) -> Config:
     )
 
 
-def _telegram_keep(path: Path, hours: object) -> timedelta | None:
-    """0 keeps copies in Telegram for good; Telegram lets a bot delete what it sent for 48 hours only."""
-    if isinstance(hours, bool) or not isinstance(hours, (int, float)) or not 0 <= hours < 48:
-        raise ValueError(f"{path}: [telegram] delete_after_hours must be 0 (never) or under 48, not {hours!r}")
-    return timedelta(hours=hours) if hours else None
+def _telegram_keep(path: Path, enabled: object, hours: object) -> timedelta | None:
+    """How long copies stay in Telegram when deleting them is switched on.
+
+    Telegram lets a bot delete what it sent for less than 48 hours, and copies are looked at every ten minutes.
+    """
+    if not isinstance(enabled, bool):
+        raise ValueError(f"{path}: [telegram] delete_copies must be true or false, not {enabled!r}")
+    if isinstance(hours, bool) or not isinstance(hours, int) or not 1 <= hours <= 47:
+        raise ValueError(f"{path}: [telegram] delete_after_hours must be a whole number from 1 to 47, not {hours!r}")
+    return timedelta(hours=hours) if enabled else None
 
 
 def _language(path: Path, value: object) -> str:

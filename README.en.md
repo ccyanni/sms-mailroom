@@ -93,6 +93,9 @@ language = "zh"     # optional; "zh" or "en"
 [telegram]
 token = "<bot token>"
 chat_id = "<your chat id>"
+buttons = true            # optional; Archive and Delete buttons under forwarded messages
+delete_copies = false     # optional; true deletes forwarded messages from Telegram after delete_after_hours
+delete_after_hours = 24   # optional; a whole number from 1 to 47
 
 [access]
 team_domain = "<team>.cloudflareaccess.com"

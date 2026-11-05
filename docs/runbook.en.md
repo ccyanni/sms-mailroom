@@ -82,9 +82,9 @@ language = "zh"     # optional; "zh" or "en". Used for Telegram texts, and for t
 [telegram]
 token = "<bot token from @BotFather>"
 chat_id = "<the owner's chat id>"
-buttons = true      # optional; false drops the Archive and Delete buttons under forwarded Messages
+buttons = true            # optional; false drops the Archive and Delete buttons under forwarded Messages
 delete_copies = false     # optional; true deletes each forwarded copy from Telegram after delete_after_hours
-delete_after_hours = 24   # optional; 1 to 47
+delete_after_hours = 24   # optional; a whole number from 1 to 47 (Telegram's limit is 48)
 
 [access]
 team_domain = "<team>.cloudflareaccess.com"

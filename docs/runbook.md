@@ -84,9 +84,9 @@ language = "zh"     # 選填；"zh" 或 "en"。Telegram 訊息用這個語言，
 [telegram]
 token = "<向 @BotFather 申請的機器人 token>"
 chat_id = "<擁有者的聊天室 ID>"
-buttons = true      # 選填；false 會拿掉轉發簡訊下方的「封存」「刪除」按鈕
+buttons = true            # 選填；false 會拿掉轉發簡訊下方的「封存」「刪除」按鈕
 delete_copies = false     # 選填；true 會在轉發 delete_after_hours 小時後，從 Telegram 刪除那則簡訊
-delete_after_hours = 24   # 選填；1 到 47
+delete_after_hours = 24   # 選填；1 到 47 的整數（Telegram 的上限是 48）
 
 [access]
 team_domain = "<團隊名稱>.cloudflareaccess.com"

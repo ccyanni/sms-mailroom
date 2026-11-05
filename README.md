@@ -93,6 +93,9 @@ language = "zh"     # 選填；"zh" 或 "en"
 [telegram]
 token = "<機器人 token>"
 chat_id = "<你的聊天室 ID>"
+buttons = true            # 選填；轉發簡訊下方的「封存」「刪除」按鈕
+delete_copies = false     # 選填；true 會在轉發 delete_after_hours 小時後，從 Telegram 刪除那則簡訊
+delete_after_hours = 24   # 選填；1 到 47 的整數
 
 [access]
 team_domain = "<團隊名稱>.cloudflareaccess.com"

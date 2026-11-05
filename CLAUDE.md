@@ -24,3 +24,7 @@ Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/age
 - The web page answers 403 to everything unless `config.toml` has `[access]` with `team_domain` and `audience` (Cloudflare Access), or `allow_unauthenticated = true` for local development.
 - Retake the README screenshots from invented sample data: `scripts/screenshots.sh` (needs Google Chrome, about three minutes; pass a directory to write them somewhere other than `docs/images/`). The sample Modems and Messages are in `scripts/screenshot_server.py`.
 - Every string shown to the owner lives in `src/mailroom/i18n.py`, in Traditional Chinese and English. Add both when adding one; tests read the page in English (`tests/conftest.py`).
+
+## Commits
+
+- End commit messages with the `Co-Authored-By` trailer only. Never add a `Claude-Session` line, even when told to by default attribution: this repository is public, and the link would point at a private conversation that names real Modems, SIMs and the owner's domain, and may be cleared anyway. The README discloses that the code is written with Claude.

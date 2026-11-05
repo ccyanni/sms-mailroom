@@ -82,6 +82,7 @@ def create_app(
     trash_check_every: float = 3600.0,
     telegram_buttons: bool = False,
     telegram_poll_timeout: int = 25,
+    telegram_poll_retry: float = 1.0,
 ) -> FastAPI:
     """`language` is used for Telegram texts and for the page until the owner picks another.
 
@@ -93,7 +94,7 @@ def create_app(
     store = Store(db_path)
     bot = TelegramBot(telegram, http_post) if telegram else None
     send = bot.send if bot else None
-    buttons = Buttons(store, bot, language, trash_keep, telegram_poll_timeout) if bot and telegram_buttons else None
+    buttons = Buttons(store, bot, language, trash_keep, telegram_poll_timeout, telegram_poll_retry) if bot and telegram_buttons else None
     keyboard = buttons.keyboard if buttons else None
     forwarder = Forwarder(store, send, part_timeout, forward_interval, language, keyboard)
     service = Service(transport, store, forwarder, poll_interval, scan_interval)

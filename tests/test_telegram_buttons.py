@@ -26,6 +26,7 @@ class FakeBot:
         self.answers: list[dict] = []
         self.polls = 0
         self.polling_fails_with: Exception | None = None
+        self.polling_failures_left: int | None = None  # None: keeps failing for as long as polling_fails_with is set
         self._presses: queue.Queue[dict] = queue.Queue()
         self._next_update = 1
         self.while_sending = None  # called once, in the middle of the next sendMessage
@@ -48,7 +49,9 @@ class FakeBot:
         if method == "getUpdates":
             self.polls += 1
             assert payload["allowed_updates"] == ["callback_query"]
-            if self.polling_fails_with:
+            if self.polling_fails_with and self.polling_failures_left != 0:
+                if self.polling_failures_left is not None:
+                    self.polling_failures_left -= 1
                 raise self.polling_fails_with
             try:
                 return [self._presses.get(timeout=0.05)]
@@ -315,3 +318,22 @@ def test_message_deleted_for_good_while_being_sent_does_not_pass_its_copy_to_a_n
         bot.press(old, "trash")
         wait_for(lambda: bot.answers)
         assert shown(page) == ["arrived meanwhile"]
+
+
+def test_a_single_fetch_that_times_out_is_retried_without_a_warning(modem, bot, mailroom, caplog):
+    bot.polling_fails_with, bot.polling_failures_left = TimeoutError("The read operation timed out"), 1
+    with caplog.at_level(logging.INFO), mailroom():
+        wait_for(lambda: bot.polls >= 3)
+
+    assert "button presses" not in caplog.text
+
+
+def test_fetching_that_keeps_failing_is_warned_about_once(modem, bot, mailroom, caplog):
+    bot.polling_fails_with = TimeoutError("The read operation timed out")
+    with caplog.at_level(logging.INFO), mailroom(telegram_poll_retry=0.01):
+        wait_for(lambda: bot.polls >= 4)
+        bot.polling_fails_with = None
+        wait_for(lambda: "works again" in caplog.text)
+
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING and "button presses" in r.getMessage()]
+    assert len(warnings) == 1

@@ -51,12 +51,14 @@ class Buttons:
         language: str,
         trash_keep: timedelta,
         poll_timeout: int = 25,
+        first_retry: float = 1.0,
     ) -> None:
         self._store = store
         self._bot = bot
         self._language = language
         self._trash_days = trash_keep.days
         self._poll_timeout = poll_timeout
+        self._first_retry = first_retry
         self.failing_since: datetime | None = None  # when fetching presses from Telegram stopped working
 
     def keyboard(self, message: StoredMessage) -> dict:
@@ -64,22 +66,25 @@ class Buttons:
 
     def run(self, stop: threading.Event) -> None:
         offset: int | None = None
-        delay = 1.0
+        delay, failures = self._first_retry, 0
         while not stop.is_set():
             try:
                 presses = self._bot.button_presses(offset, self._poll_timeout)
             except TelegramError as exc:
-                if self.failing_since is None:
+                failures += 1
+                self.failing_since = self.failing_since or datetime.now(timezone.utc)
+                if failures == 1:
+                    continue  # a long poll that Telegram leaves unanswered now and then: just ask again
+                if failures == 2:
                     log.warning("could not fetch button presses from Telegram, will keep trying: %s", exc)
-                    self.failing_since = datetime.now(timezone.utc)
                 if stop.wait(delay):
                     return
                 delay = min(delay * 2, _MAX_RETRY_DELAY)
                 continue
-            if self.failing_since is not None:
+            if failures > 1:
                 log.info("fetching button presses from Telegram works again")
-                self.failing_since = None
-            delay = 1.0
+            self.failing_since = None
+            delay, failures = self._first_retry, 0
             for update in presses:
                 if isinstance(update.get("update_id"), int):
                     offset = update["update_id"] + 1  # Telegram forgets everything before the offset

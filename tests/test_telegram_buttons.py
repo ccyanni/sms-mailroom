@@ -291,16 +291,57 @@ def test_buttons_are_on_unless_the_config_says_otherwise(tmp_path):
     assert config.load(path).telegram_buttons is False
 
 
-def test_presses_that_cannot_be_fetched_raise_an_alert_until_they_can(modem, bot, mailroom):
-    bot.polling_fails_with = OSError("HTTP Error 409: Conflict")
-    with mailroom(alert_after=0.2) as page:
-        wait_for(lambda: any("buttons" in payload["text"] for payload in bot.sent))
-        alert = [payload["text"] for payload in bot.sent if "buttons" in payload["text"]][0]
-        assert "token" in alert
-        assert "buttons" in page.get("/status").text
+def http_error(status: int, reason: str) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError("https://api.telegram.org/bot<token>/getUpdates", status, reason, {}, None)
+
+
+def notices(bot) -> list[str]:
+    return [payload["text"] for payload in bot.sent if payload["text"].startswith(("⚠️", "✅"))]
+
+
+def test_another_program_fetching_the_presses_raises_an_alert_until_it_stops(modem, bot, mailroom):
+    bot.polling_fails_with = http_error(409, "Conflict")
+    with mailroom(alert_after=0.2, telegram_poll_retry=0.01) as page:
+        wait_for(lambda: any("buttons" in text for text in notices(bot)))
+        alert = [text for text in notices(bot) if "buttons" in text][0]
+        assert "another program" in alert and "token may have leaked" in alert
+        assert "token may have leaked" in page.get("/status").text
 
         bot.polling_fails_with = None
-        wait_for(lambda: any("work again" in payload["text"] for payload in bot.sent))
+        wait_for(lambda: any("work again" in text for text in notices(bot)))
+        time.sleep(0.3)
+
+    assert len(notices(bot)) == 2  # the Alert and its end, without an outage notice on top
+
+
+def test_telegram_not_handing_over_presses_is_told_once_it_is_over_without_an_alert(modem, bot, mailroom):
+    bot.polling_fails_with = http_error(502, "Bad Gateway")
+    with mailroom(alert_after=0.2, telegram_poll_retry=0.01) as page:
+        wait_for(lambda: "has not been handing over button presses" in page.get("/status").text)
+        time.sleep(0.3)
+        assert notices(bot) == []
+
+        bot.polling_fails_with = None
+        wait_for(lambda: notices(bot))
+        time.sleep(0.3)
+
+        assert "has not been handing over" not in page.get("/status").text
+    (notice,) = notices(bot)
+    assert re.fullmatch(
+        r"⚠️ Mailroom alert\nTelegram could not hand over button presses from \d\d:\d\d to \d\d:\d\d\. "
+        r"Buttons pressed meanwhile were handled late\.",
+        notice,
+    )
+
+
+def test_presses_fetched_again_soon_enough_are_not_mentioned(modem, bot, mailroom):
+    bot.polling_fails_with, bot.polling_failures_left = http_error(502, "Bad Gateway"), 3
+    with mailroom(alert_after=1.0, telegram_poll_retry=0.01) as page:
+        wait_for(lambda: bot.polls >= 5)
+        time.sleep(0.3)
+        assert "button presses" not in page.get("/status").text
+
+    assert notices(bot) == []
 
 
 def test_token_is_kept_out_of_the_log(modem, bot, mailroom, caplog):

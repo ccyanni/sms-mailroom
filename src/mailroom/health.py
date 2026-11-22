@@ -7,7 +7,7 @@ import re
 import subprocess
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 from zoneinfo import ZoneInfo
 
 from mailroom import i18n
@@ -15,6 +15,9 @@ from mailroom.forwarder import Forwarder
 from mailroom.receiver import HOME, NOT_REGISTERED, RECEIVING, ROAMING
 from mailroom.service import Service
 from mailroom.store import Store, StoredAlert
+
+if TYPE_CHECKING:
+    from mailroom.buttons import Buttons
 
 log = logging.getLogger(__name__)
 
@@ -64,11 +67,13 @@ class HealthMonitor:
         language: str = i18n.DEFAULT_LANGUAGE,
         start_notice: str | None = None,
         start_notice_after: float = 15.0,
-        buttons_failing: Callable[[], bool] | None = None,
+        buttons: Buttons | None = None,
     ) -> None:
         """A problem is reported once it has lasted `alert_after` seconds, so brief blips stay quiet.
 
-        `buttons_failing` says whether button presses cannot be fetched from Telegram right now.
+        `buttons` fetches the presses of the buttons under forwarded Messages, when they are switched on.
+        Telegram saying another program fetches them raises an Alert, since the token may have leaked;
+        Telegram being unreachable for them is told once it is over, like an outage for forwarding.
 
         `start_notice` is "boot" or "restart" to tell the owner that Mailroom has started, once the
         Modems have had `start_notice_after` seconds to be found; None sends nothing.
@@ -81,13 +86,15 @@ class HealthMonitor:
         self._interval = interval
         self._network_service_enabled = network_service_enabled
         self._network_service_checked: datetime | None = None
-        self._buttons_failing = buttons_failing
+        self._buttons = buttons
+        self._buttons_outage_since: datetime | None = None
+        self._buttons_conflicted = False
         self._language = language
         self.network_service_state: bool | None = None  # as last probed; None when unknown
         self._outage_since: datetime | None = None
         self._start_notice = start_notice
         self._start_notice_at = datetime.now(timezone.utc) + timedelta(seconds=start_notice_after)
-        self._outage_notices: list[dict] = []
+        self._outage_notices: list[tuple[str, dict]] = []
 
     def run(self, stop: threading.Event) -> None:
         while not stop.wait(self._interval):
@@ -106,6 +113,10 @@ class HealthMonitor:
         since = self._forwarder.failing_since
         if since is not None:
             alerts.append((i18n.alert_text(language, "telegram_down", {"time": _clock(since)}), since))
+        buttons = self._buttons
+        since = buttons.failing_since if buttons is not None and buttons.conflicting_since is None else None
+        if since is not None and datetime.now(timezone.utc) - since >= self._alert_after:
+            alerts.append((i18n.alert_text(language, "buttons_down", {"time": _clock(since)}), since))
         return alerts
 
     def check(self) -> None:
@@ -151,7 +162,7 @@ class HealthMonitor:
             if self.network_service_state:
                 problems["data:network-service"] = ("network_service", {}, _NOW)
 
-        if self._buttons_failing is not None and self._buttons_failing():
+        if self._buttons is not None and self._buttons.conflicting_since is not None:
             problems["telegram:buttons"] = ("buttons", {}, self._alert_after)
 
         for key, (kind, values, grace) in problems.items():
@@ -194,18 +205,35 @@ class HealthMonitor:
         self._store.delete_alert(alert.key)
 
     def _watch_telegram(self, now: datetime) -> None:
-        """Telegram cannot carry news of its own outage, so say it once it is back."""
+        """Telegram cannot carry news of its own outage, so say it once it is back.
+
+        Button presses Telegram could not hand over are told the same way; they are handled once it is back,
+        since Telegram keeps them for a day. Not when Telegram said another program was fetching them:
+        that raised an Alert, and its resolution says it is over.
+        """
         since = self._forwarder.failing_since
         if since is not None:
             self._outage_since = since
         elif self._outage_since is not None:
             if now - self._outage_since >= self._alert_after:
-                self._outage_notices.append({"start": _clock(self._outage_since), "end": _clock(now)})
+                values = {"start": _clock(self._outage_since), "end": _clock(now)}
+                self._outage_notices.append(("telegram_outage", values))
             self._outage_since = None
+        buttons = self._buttons
+        if buttons is not None:
+            since = buttons.failing_since
+            if since is not None:
+                self._buttons_outage_since = since
+                self._buttons_conflicted = self._buttons_conflicted or buttons.conflicting_since is not None
+            elif self._buttons_outage_since is not None:
+                if not self._buttons_conflicted and now - self._buttons_outage_since >= self._alert_after:
+                    values = {"start": _clock(self._buttons_outage_since), "end": _clock(now)}
+                    self._outage_notices.append(("buttons_outage", values))
+                self._buttons_outage_since, self._buttons_conflicted = None, False
         self._outage_notices = [
-            notice
-            for notice in self._outage_notices
-            if not self._deliver("alert_header", i18n.alert_text, "telegram_outage", notice)
+            (kind, values)
+            for kind, values in self._outage_notices
+            if not self._deliver("alert_header", i18n.alert_text, kind, values)
         ]
 
     def _deliver(self, header: str, describe, kind: str, values: dict) -> bool:

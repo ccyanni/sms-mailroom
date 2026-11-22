@@ -22,11 +22,13 @@ class TelegramError(Exception):
     """Telegram could not be reached or refused the call. Never contains the bot token.
 
     `permanent` is True when Telegram refused the call itself (a bad request), so asking again will not help.
+    `status` is the HTTP status Telegram answered with, or None when it gave no answer.
     """
 
-    def __init__(self, reason: str, permanent: bool = False) -> None:
+    def __init__(self, reason: str, permanent: bool = False, status: int | None = None) -> None:
         super().__init__(reason)
         self.permanent = permanent
+        self.status = status
 
 
 def http_post(url: str, payload: dict) -> object:
@@ -81,8 +83,8 @@ class TelegramBot:
         except Exception as exc:
             # The token is part of the URL, which some errors quote.
             reason = f"{type(exc).__name__}: {exc}".replace(self._token, "<token>")
-            refused = isinstance(exc, urllib.error.HTTPError) and exc.code == 400
-            raise TelegramError(reason, permanent=refused) from None
+            status = exc.code if isinstance(exc, urllib.error.HTTPError) else None
+            raise TelegramError(reason, permanent=status == 400, status=status) from None
 
 
 def telegram_sender(settings: TelegramSettings, post: HttpPost = http_post) -> Callable[[str], object]:

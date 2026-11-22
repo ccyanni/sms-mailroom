@@ -117,7 +117,7 @@ def create_app(
         language,
         start_notice,
         start_notice_after,
-        (lambda: buttons.failing_since is not None) if buttons else None,
+        buttons,
     )
     service.add_background(monitor.run)
     backups = None

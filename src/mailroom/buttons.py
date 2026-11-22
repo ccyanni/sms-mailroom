@@ -22,6 +22,7 @@ ARCHIVE, UNARCHIVE, TRASH, RESTORE = "archive", "unarchive", "trash", "restore"
 _LABELS = {ARCHIVE: "archive", UNARCHIVE: "unarchive", TRASH: "delete", RESTORE: "restore"}
 _DONE = {ARCHIVE: "tg_archived", UNARCHIVE: "tg_unarchived", TRASH: "tg_trashed", RESTORE: "tg_restored"}
 _MAX_RETRY_DELAY = 60.0
+_CONFLICT = 409  # what Telegram answers getUpdates while a webhook is set or another getUpdates is waiting
 
 
 def keyboard(language: str, message: StoredMessage) -> dict:
@@ -60,6 +61,8 @@ class Buttons:
         self._poll_timeout = poll_timeout
         self._first_retry = first_retry
         self.failing_since: datetime | None = None  # when fetching presses from Telegram stopped working
+        # when Telegram first said another program is fetching the presses, or a webhook is set (HTTP 409)
+        self.conflicting_since: datetime | None = None
 
     def keyboard(self, message: StoredMessage) -> dict:
         return keyboard(self._language, message)
@@ -73,6 +76,8 @@ class Buttons:
             except TelegramError as exc:
                 failures += 1
                 self.failing_since = self.failing_since or datetime.now(timezone.utc)
+                if exc.status == _CONFLICT:
+                    self.conflicting_since = self.conflicting_since or datetime.now(timezone.utc)
                 if failures == 1:
                     continue  # a long poll that Telegram leaves unanswered now and then: just ask again
                 if failures == 2:
@@ -83,7 +88,7 @@ class Buttons:
                 continue
             if failures > 1:
                 log.info("fetching button presses from Telegram works again")
-            self.failing_since = None
+            self.failing_since = self.conflicting_since = None
             delay, failures = self._first_retry, 0
             for update in presses:
                 if isinstance(update.get("update_id"), int):

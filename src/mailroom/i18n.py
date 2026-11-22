@@ -155,9 +155,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "resolved_storage": "SIM {label} has storage slots free again.",
         "resolved_modem": "Modem {imei} is working again.",
         "resolved_unstable": "Modem {imei} has stopped disconnecting.",
-        "alert_buttons": "The buttons under forwarded Messages are not working: Mailroom cannot fetch button presses "
-        "from Telegram. A webhook, or another program using the bot's token, stops them; if you set up neither, "
+        "alert_buttons": "The buttons under forwarded Messages are not working: Telegram says a webhook is set, "
+        "or another program is fetching button presses with the bot's token. If you set up neither, "
         "the token may have leaked. Replace it with @BotFather.",
+        "alert_buttons_outage": "Telegram could not hand over button presses from {start} to {end}. "
+        "Buttons pressed meanwhile were handled late.",
+        "alert_buttons_down": "Telegram has not been handing over button presses since {time}; "
+        "they will be handled once it does. This page works meanwhile.",
         "resolved_buttons": "The buttons under forwarded Messages work again.",
         "resolved_network_service": 'The macOS network service "A76XX Series LTE Module" is disabled again.',
         "started_boot": "🟢 Mailroom started (the Mac has just booted)",
@@ -313,9 +317,11 @@ _STRINGS: dict[str, dict[str, str]] = {
         "resolved_storage": "SIM「{label}」的儲存空間已經空出來了。",
         "resolved_modem": "模組 {imei} 恢復正常。",
         "resolved_unstable": "模組 {imei} 不再斷線了。",
-        "alert_buttons": "轉發簡訊下方的按鈕無法使用：Mailroom 收不到 Telegram 的按鈕事件。設定了 webhook，"
-        "或有其他程式在使用同一個機器人 token，都會造成這個情況；如果兩者你都沒有設定，token 可能已經外洩，"
+        "alert_buttons": "轉發簡訊下方的按鈕無法使用：Telegram 表示這個機器人設定了 webhook，"
+        "或有其他程式正用同一個 token 在收按鈕事件。如果兩者你都沒有設定，token 可能已經外洩，"
         "請用 @BotFather 換一個新的。",
+        "alert_buttons_outage": "{start} 到 {end} 之間 Telegram 沒有傳來按鈕事件，這段期間按的按鈕延後處理了。",
+        "alert_buttons_down": "從 {time} 起 Telegram 沒有傳來按鈕事件，恢復後會補處理；這段期間可以用這個網頁操作。",
         "resolved_buttons": "轉發簡訊下方的按鈕恢復正常了。",
         "resolved_network_service": "macOS 的網路服務「A76XX Series LTE Module」已經停用。",
         "started_boot": "🟢 Mailroom 已啟動（電腦剛重新開機）",
